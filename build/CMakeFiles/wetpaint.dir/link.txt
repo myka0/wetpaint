@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/wetpaint.dir/src/main.cpp.o -o wetpaint 
