@@ -1,5 +1,5 @@
 CMakeFiles/paint.dir/src/main.cpp.o: /home/myka/wetpaint/src/main.cpp \
- /usr/include/stdc-predef.h /usr/include/c++/13.2.1/cstdlib \
+ /usr/include/stdc-predef.h /usr/include/c++/13.2.1/cctype \
  /usr/include/c++/13.2.1/x86_64-pc-linux-gnu/bits/c++config.h \
  /usr/include/c++/13.2.1/x86_64-pc-linux-gnu/bits/os_defines.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -7,21 +7,22 @@ CMakeFiles/paint.dir/src/main.cpp.o: /home/myka/wetpaint/src/main.cpp \
  /usr/include/sys/cdefs.h /usr/include/bits/long-double.h \
  /usr/include/gnu/stubs.h /usr/include/gnu/stubs-64.h \
  /usr/include/c++/13.2.1/x86_64-pc-linux-gnu/bits/cpu_defines.h \
- /usr/include/c++/13.2.1/pstl/pstl_config.h /usr/include/stdlib.h \
- /usr/include/bits/libc-header-start.h \
+ /usr/include/c++/13.2.1/pstl/pstl_config.h /usr/include/ctype.h \
+ /usr/include/bits/types.h /usr/include/bits/typesizes.h \
+ /usr/include/bits/time64.h /usr/include/bits/endian.h \
+ /usr/include/bits/endianness.h /usr/include/bits/types/locale_t.h \
+ /usr/include/bits/types/__locale_t.h /usr/include/c++/13.2.1/cstdlib \
+ /usr/include/stdlib.h /usr/include/bits/libc-header-start.h \
  /usr/lib/gcc/x86_64-pc-linux-gnu/13.2.1/include/stddef.h \
  /usr/include/bits/waitflags.h /usr/include/bits/waitstatus.h \
  /usr/include/bits/floatn.h /usr/include/bits/floatn-common.h \
- /usr/include/bits/types/locale_t.h /usr/include/bits/types/__locale_t.h \
- /usr/include/sys/types.h /usr/include/bits/types.h \
- /usr/include/bits/typesizes.h /usr/include/bits/time64.h \
- /usr/include/bits/types/clock_t.h /usr/include/bits/types/clockid_t.h \
- /usr/include/bits/types/time_t.h /usr/include/bits/types/timer_t.h \
- /usr/include/bits/stdint-intn.h /usr/include/endian.h \
- /usr/include/bits/endian.h /usr/include/bits/endianness.h \
- /usr/include/bits/byteswap.h /usr/include/bits/uintn-identity.h \
- /usr/include/sys/select.h /usr/include/bits/select.h \
- /usr/include/bits/types/sigset_t.h /usr/include/bits/types/__sigset_t.h \
+ /usr/include/sys/types.h /usr/include/bits/types/clock_t.h \
+ /usr/include/bits/types/clockid_t.h /usr/include/bits/types/time_t.h \
+ /usr/include/bits/types/timer_t.h /usr/include/bits/stdint-intn.h \
+ /usr/include/endian.h /usr/include/bits/byteswap.h \
+ /usr/include/bits/uintn-identity.h /usr/include/sys/select.h \
+ /usr/include/bits/select.h /usr/include/bits/types/sigset_t.h \
+ /usr/include/bits/types/__sigset_t.h \
  /usr/include/bits/types/struct_timeval.h \
  /usr/include/bits/types/struct_timespec.h \
  /usr/include/bits/pthreadtypes.h /usr/include/bits/thread-shared-types.h \
@@ -62,8 +63,7 @@ CMakeFiles/paint.dir/src/main.cpp.o: /home/myka/wetpaint/src/main.cpp \
  /usr/include/c++/13.2.1/bits/localefwd.h \
  /usr/include/c++/13.2.1/x86_64-pc-linux-gnu/bits/c++locale.h \
  /usr/include/c++/13.2.1/clocale /usr/include/locale.h \
- /usr/include/bits/locale.h /usr/include/c++/13.2.1/cctype \
- /usr/include/ctype.h /usr/include/c++/13.2.1/bits/ios_base.h \
+ /usr/include/bits/locale.h /usr/include/c++/13.2.1/bits/ios_base.h \
  /usr/include/c++/13.2.1/ext/atomicity.h \
  /usr/include/c++/13.2.1/x86_64-pc-linux-gnu/bits/gthr.h \
  /usr/include/c++/13.2.1/x86_64-pc-linux-gnu/bits/gthr-default.h \
@@ -144,4 +144,21 @@ CMakeFiles/paint.dir/src/main.cpp.o: /home/myka/wetpaint/src/main.cpp \
  /usr/include/c++/13.2.1/x86_64-pc-linux-gnu/bits/basic_file.h \
  /usr/include/c++/13.2.1/x86_64-pc-linux-gnu/bits/c++io.h \
  /usr/include/c++/13.2.1/bits/fstream.tcc /usr/include/c++/13.2.1/sstream \
- /usr/include/c++/13.2.1/bits/sstream.tcc
+ /usr/include/c++/13.2.1/bits/sstream.tcc /usr/include/c++/13.2.1/vector \
+ /usr/include/c++/13.2.1/bits/stl_uninitialized.h \
+ /usr/include/c++/13.2.1/bits/stl_vector.h \
+ /usr/include/c++/13.2.1/bits/stl_bvector.h \
+ /usr/include/c++/13.2.1/bits/vector.tcc \
+ /home/myka/wetpaint/src/./tokenize.hpp /usr/include/c++/13.2.1/algorithm \
+ /usr/include/c++/13.2.1/bits/stl_algo.h \
+ /usr/include/c++/13.2.1/bits/algorithmfwd.h \
+ /usr/include/c++/13.2.1/bits/stl_heap.h \
+ /usr/include/c++/13.2.1/bits/uniform_int_dist.h \
+ /usr/include/c++/13.2.1/bits/stl_tempbuf.h \
+ /usr/include/c++/13.2.1/bits/ranges_algo.h \
+ /usr/include/c++/13.2.1/bits/ranges_algobase.h \
+ /usr/include/c++/13.2.1/pstl/glue_algorithm_defs.h \
+ /usr/include/c++/13.2.1/pstl/execution_defs.h \
+ /usr/include/c++/13.2.1/optional \
+ /usr/include/c++/13.2.1/bits/enable_special_members.h \
+ /home/myka/wetpaint/src/./parser.hpp

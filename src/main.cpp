@@ -1,8 +1,14 @@
+#include <cctype>
 #include <cstdlib>
 #include <iostream>
 #include <fstream>
+#include <ostream>
 #include <sstream>
 #include <string>
+#include <vector>
+
+#include "./tokenize.hpp"
+#include "./parser.hpp"
 
 using namespace std;
 
@@ -22,7 +28,9 @@ int main(int argc, char* argv[]) {
       contents = contents_stream.str();
     }
     
-    cout << contents << endl;
+    Tokenizer tokenizer(contents);
+    vector<Token> tokens = tokenizer.tokenize();
 
     return EXIT_SUCCESS;
 }
+
