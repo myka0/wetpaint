@@ -7,7 +7,6 @@
 #include <string>
 #include <vector>
 
-#include "./tokenize.hpp"
 #include "./parser.hpp"
 
 using namespace std;
@@ -30,6 +29,8 @@ int main(int argc, char* argv[]) {
     
     Tokenizer tokenizer(contents);
     vector<Token> tokens = tokenizer.tokenize();
+    Parser parser(tokens);
+    parser.print_tokens();
 
     return EXIT_SUCCESS;
 }

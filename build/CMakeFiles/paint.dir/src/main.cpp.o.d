@@ -149,6 +149,7 @@ CMakeFiles/paint.dir/src/main.cpp.o: /home/myka/wetpaint/src/main.cpp \
  /usr/include/c++/13.2.1/bits/stl_vector.h \
  /usr/include/c++/13.2.1/bits/stl_bvector.h \
  /usr/include/c++/13.2.1/bits/vector.tcc \
+ /home/myka/wetpaint/src/./parser.hpp \
  /home/myka/wetpaint/src/./tokenize.hpp /usr/include/c++/13.2.1/algorithm \
  /usr/include/c++/13.2.1/bits/stl_algo.h \
  /usr/include/c++/13.2.1/bits/algorithmfwd.h \
@@ -160,5 +161,4 @@ CMakeFiles/paint.dir/src/main.cpp.o: /home/myka/wetpaint/src/main.cpp \
  /usr/include/c++/13.2.1/pstl/glue_algorithm_defs.h \
  /usr/include/c++/13.2.1/pstl/execution_defs.h \
  /usr/include/c++/13.2.1/optional \
- /usr/include/c++/13.2.1/bits/enable_special_members.h \
- /home/myka/wetpaint/src/./parser.hpp
+ /usr/include/c++/13.2.1/bits/enable_special_members.h
