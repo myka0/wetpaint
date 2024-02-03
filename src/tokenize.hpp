@@ -73,7 +73,7 @@ inline TokenType get_symbol(const char token) {
   else if (token == ';')
     return TokenType::Semicol;
   else {
-    cerr << "Invalid character" << endl;
+    cerr << "Invalid character: " << token << endl;
     exit(EXIT_FAILURE);
   }
 
@@ -82,6 +82,7 @@ inline TokenType get_symbol(const char token) {
 
 struct Token {
   TokenType type;
+  int line;
   optional<string> value;
 };
 
@@ -106,9 +107,9 @@ public:
 
         TokenType token = get_word(buffer);
         if (token == TokenType::Identifier)
-          tokens.push_back({ token, buffer });
+          tokens.push_back({ token, line_count, buffer });
         else
-          tokens.push_back({ token });
+          tokens.push_back({ token, line_count });
         buffer.clear();
       }
       
@@ -117,16 +118,22 @@ public:
           buffer.push_back(pop());
         }
 
-        tokens.push_back({ TokenType::Int_Lit, buffer });
+        tokens.push_back({ TokenType::Int_Lit, line_count, buffer });
         buffer.clear();
       }
 
-      // Skip tokenizing sinlge line comment
+      // Skip tokenizing comment
       else if (peek().value() == '#') {
         while (peek().has_value() && peek().value() != '\n') {
           pop();
         }
       }
+
+     // Increment line counter
+      else if (peek().value() == '\n') {
+        pop();
+        line_count++;
+      } 
 
       // Skip whitespace
       else if (isspace(peek().value())) {
@@ -135,7 +142,7 @@ public:
 
       // Token must be symbol or invalid
       else {
-        tokens.push_back({ get_symbol(peek().value()) });
+        tokens.push_back({ get_symbol(peek().value()), line_count });
         pop();
       }
     }
