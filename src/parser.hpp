@@ -1,6 +1,9 @@
 #pragma once
 
 #include "tokenize.hpp"
+#include <cstdlib>
+#include <iostream>
+#include <variant>
 #include <vector>
 #include <string>
 
@@ -50,30 +53,141 @@ inline string to_string(const TokenType type) {
   return "";
 }
 
+struct BinaryExpr; 
+
+struct Identifier {
+  Token value;
+};
+
+struct IntLiteral {
+  Token value;
+};
+
+struct Expr {
+  variant<Identifier, IntLiteral, BinaryExpr*> var;
+};
+
+struct BinaryExpr {
+  Expr lhs;
+  Expr rhs;
+  Token operand;
+};
+
+struct Stmt {
+  Expr expr;
+};
+
+struct Program {
+  vector<Stmt> stmts;
+};
+
 class Parser {
 public:
-  inline explicit Parser(vector<Token> tokens)
+  explicit Parser(vector<Token> tokens)
     : m_tokens(tokens) 
   {
   }
 
-  void print_tokens() {
-    while (peek().has_value()) {
-      cout << to_string(pop().type) << " ";
+  Program createAST() {
+    Program program;
+    
+    while (not_eof()) {
+      program.stmts.push_back(parse_stmt());
     }
+
+    return program; 
   }
 
 private:
-  [[nodiscard]] inline optional<Token> peek(int count = 0) const {
-    if (m_idx + count >= m_tokens.size()) {
+  // Handle complex statement types
+  Stmt parse_stmt() {
+    Stmt stmt;
+    // Skip to parse_expr
+    stmt.expr = parse_expr();
+    return stmt;
+  }
+
+  // Handle expressions  
+  Expr parse_expr() {
+    return get_expr(parse_additive_expr());
+  }
+
+  // Handle Addition & Subtraction operations
+  BinaryExpr* parse_additive_expr() {
+    BinaryExpr** head_bin_expr = (BinaryExpr**)malloc(sizeof(BinaryExpr));
+    BinaryExpr* bin_expr = (BinaryExpr*)malloc(sizeof(BinaryExpr));
+    *head_bin_expr = bin_expr;
+
+    bin_expr->lhs = parse_primary_expr();
+    bin_expr->operand = pop();
+    bin_expr->rhs = parse_primary_expr(); 
+    
+    while (peek().value().type == TokenType::Plus || peek().value().type == TokenType::Minus) { 
+      *head_bin_expr = get_bin_expr(*head_bin_expr);
+    }
+
+    return *head_bin_expr; 
+  }
+
+  // Set prev_bin_expr as the left side of the next bin_expr
+  BinaryExpr* get_bin_expr(BinaryExpr* prev_bin_expr) {
+    BinaryExpr* bin_expr = (BinaryExpr*)malloc(sizeof(BinaryExpr));
+
+    bin_expr->lhs = get_expr(prev_bin_expr);
+    bin_expr->operand = pop();
+    bin_expr->rhs = parse_primary_expr();
+    
+    return bin_expr;
+  }
+ 
+  // Create expr with binary expr
+  Expr get_expr(BinaryExpr* bin_expr) {
+    Expr expr;
+    expr.var = bin_expr;
+    return expr;
+  }
+
+  // Parse literal values & grouping expr
+  Expr parse_primary_expr() {
+    Token token = pop();
+    Expr expr;
+    
+    // User defined values
+    if (token.type == TokenType::Identifier) {
+      Identifier ident;
+      ident.value = token;
+      expr.var = ident;
+      return expr;
+    }
+
+    // Constants and Numeric Constants
+    else if (token.type == TokenType::Int_Lit) {
+      IntLiteral intlit;
+      intlit.value = token;
+      expr.var = intlit;
+      return expr;
+    }
+
+    else {
+      cerr << "Unexpected token found during parsing: " << to_string(token.type) << "\n";
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  [[nodiscard]] optional<Token> peek(int ahead = 0) const {
+    if (m_idx + ahead >= m_tokens.size()) {
       return {};
     }
 
     return m_tokens.at(m_idx);
   }
 
-  inline Token pop() {
+  Token pop() {
     return m_tokens.at(m_idx++);
+  }
+
+  bool not_eof() {
+    return m_tokens.at(m_idx).type != TokenType::EndOfFile;
   }
 
   const vector<Token> m_tokens;

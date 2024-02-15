@@ -29,8 +29,9 @@ int main(int argc, char* argv[]) {
     
     Tokenizer tokenizer(contents);
     vector<Token> tokens = tokenizer.tokenize();
+
     Parser parser(tokens);
-    parser.print_tokens();
+    Program program = parser.createAST();    
 
     return EXIT_SUCCESS;
 }

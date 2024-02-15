@@ -13,13 +13,18 @@ using namespace std;
 
 
 enum class TokenType { 
+  // Literal Types
+  Int_Lit,
+  Identifier,
+
+  //Keywords
   Let,
   If,
   Else,
   Elif,
   Exit,
-  Int_Lit,
-  Identifier,
+
+  // Operators + Grouping
   Plus,
   Minus,
   Star,
@@ -31,10 +36,11 @@ enum class TokenType {
   OpenBrace,
   CloseBrace,
   Semicol,
-  Hashtag
+  Hashtag,
+  EndOfFile
 };
 
-inline TokenType get_word(const string token) {
+inline TokenType get_keyword(const string token) {
   if (token == "let") 
     return TokenType::Let;
   else if (token == "if") 
@@ -76,8 +82,6 @@ inline TokenType get_symbol(const char token) {
     cerr << "Invalid character: " << token << endl;
     exit(EXIT_FAILURE);
   }
-
-  
 }
 
 struct Token {
@@ -88,31 +92,32 @@ struct Token {
 
 class Tokenizer {
 public:
-  inline explicit Tokenizer(string src)
+  explicit Tokenizer(string src)
     : m_src(src)
   {
   }
 
-  inline vector<Token> tokenize() {
+  vector<Token> tokenize() {
     vector<Token> tokens;
     string buffer;
     int line_count = 1;
 
     while(peek().has_value()) {
-
+      // Get keyword
       if (isalpha(peek().value())) {
         while (isalnum(peek().value())) {
           buffer.push_back(pop());
         }
 
-        TokenType token = get_word(buffer);
+        TokenType token = get_keyword(buffer);
         if (token == TokenType::Identifier)
-          tokens.push_back({ token, line_count, buffer });
+    tokens.push_back({ token, line_count, buffer });
         else
           tokens.push_back({ token, line_count });
         buffer.clear();
       }
       
+      // Get integer literal
       else if (isdigit(peek().value())) {
         while (isdigit(peek().value())) {
           buffer.push_back(pop());
@@ -129,7 +134,7 @@ public:
         }
       }
 
-     // Increment line counter
+     // Increment line counter for every new line
       else if (peek().value() == '\n') {
         pop();
         line_count++;
@@ -147,12 +152,13 @@ public:
       }
     }
 
+    tokens.push_back( {TokenType::EndOfFile, line_count} );
     m_idx = 0;
     return tokens;
   }
 
 private:
-  [[nodiscard]] inline optional<char> peek(int ahead = 0) const {
+  [[nodiscard]] optional<char> peek(int ahead = 0) const {
     if (m_idx + ahead >= m_src.length()) {
       return {};
     }
@@ -160,7 +166,7 @@ private:
     return m_src.at(m_idx);
   }
 
-  inline char pop() {
+  char pop() {
     return m_src.at(m_idx++);
   }
 
