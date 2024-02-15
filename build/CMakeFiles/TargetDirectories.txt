@@ -1,3 +1,0 @@
-/home/myka/wetpaint/build/CMakeFiles/paint.dir
-/home/myka/wetpaint/build/CMakeFiles/edit_cache.dir
-/home/myka/wetpaint/build/CMakeFiles/rebuild_cache.dir
