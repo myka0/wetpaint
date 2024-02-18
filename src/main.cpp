@@ -5,6 +5,7 @@
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "./parser.hpp"
@@ -33,6 +34,7 @@ int main(int argc, char* argv[]) {
     Parser parser(tokens);
     Program program = parser.createAST();    
 
+    cout << program.stmts.size() << "\n"; 
+
     return EXIT_SUCCESS;
 }
-

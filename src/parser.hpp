@@ -109,33 +109,49 @@ private:
 
   // Handle expressions  
   Expr parse_expr() {
-    return get_expr(parse_additive_expr());
+    return parse_additive_expr();
   }
 
   // Handle Addition & Subtraction operations
-  BinaryExpr* parse_additive_expr() {
+  Expr parse_additive_expr() {
     BinaryExpr** head_bin_expr = (BinaryExpr**)malloc(sizeof(BinaryExpr));
     BinaryExpr* bin_expr = (BinaryExpr*)malloc(sizeof(BinaryExpr));
+    
     *head_bin_expr = bin_expr;
-
-    bin_expr->lhs = parse_primary_expr();
-    bin_expr->operand = pop();
-    bin_expr->rhs = parse_primary_expr(); 
+    Expr expr = parse_multiplicitave_expr();
     
     while (peek().value().type == TokenType::Plus || peek().value().type == TokenType::Minus) { 
-      *head_bin_expr = get_bin_expr(*head_bin_expr);
+      *head_bin_expr = get_bin_expr(expr);
+      expr = get_expr(*head_bin_expr);
     }
 
-    return *head_bin_expr; 
+    return expr; 
   }
 
-  // Set prev_bin_expr as the left side of the next bin_expr
-  BinaryExpr* get_bin_expr(BinaryExpr* prev_bin_expr) {
+  // Handle Multiplication, Division & Modulo operations
+  Expr parse_multiplicitave_expr() {
+    BinaryExpr** head_bin_expr = (BinaryExpr**)malloc(sizeof(BinaryExpr));
+    BinaryExpr* bin_expr = (BinaryExpr*)malloc(sizeof(BinaryExpr));
+    
+    *head_bin_expr = bin_expr;
+    Expr expr = parse_primary_expr();
+    
+    while (peek().value().type == TokenType::Star || peek().value().type == TokenType::FwdSlash ||
+          peek().value().type == TokenType::Modulo) { 
+      *head_bin_expr = get_bin_expr(expr);
+      expr = get_expr(*head_bin_expr);
+    }
+
+    return expr; 
+  }
+
+  // Populate binary expr
+  BinaryExpr* get_bin_expr(Expr expr) {
     BinaryExpr* bin_expr = (BinaryExpr*)malloc(sizeof(BinaryExpr));
 
-    bin_expr->lhs = get_expr(prev_bin_expr);
+    bin_expr->lhs = expr;
     bin_expr->operand = pop();
-    bin_expr->rhs = parse_primary_expr();
+    bin_expr->rhs = parse_multiplicitave_expr();
     
     return bin_expr;
   }
@@ -151,26 +167,33 @@ private:
   Expr parse_primary_expr() {
     Token token = pop();
     Expr expr;
-    
-    // User defined values
-    if (token.type == TokenType::Identifier) {
-      Identifier ident;
-      ident.value = token;
-      expr.var = ident;
-      return expr;
-    }
 
-    // Constants and Numeric Constants
-    else if (token.type == TokenType::Int_Lit) {
-      IntLiteral intlit;
-      intlit.value = token;
-      expr.var = intlit;
-      return expr;
-    }
-
-    else {
-      cerr << "Unexpected token found during parsing: " << to_string(token.type) << "\n";
-      exit(EXIT_FAILURE);
+    switch (token.type) {
+      // User defined values
+      case TokenType::Identifier: {
+        Identifier ident;
+        ident.value = token;
+        expr.var = ident;
+        return expr;
+      }
+      // Constants and Numeric Constants
+      case TokenType::Int_Lit: {
+        IntLiteral intlit;
+        intlit.value = token;
+        expr.var = intlit;
+        return expr;
+      }
+      // Grouping Expressions
+      case TokenType::OpenPar: {
+        expr = parse_expr();
+        pop();
+        return expr;
+      }
+      // Unidentified Tokens and Invalid Code Reached
+      default: {
+        cerr << "Unexpected token found during parsing: " << to_string(token.type) << " " << pop().value.value() << "\n";
+        exit(EXIT_FAILURE);
+      }
     }
   }
 
