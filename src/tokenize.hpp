@@ -23,6 +23,7 @@ enum class TokenType {
   Else,
   Elif,
   Exit,
+  Null,
 
   // Operators + Grouping
   Plus,
@@ -51,6 +52,8 @@ inline TokenType get_keyword(const string token) {
     return TokenType::Elif;
   else if (token == "exit") 
     return TokenType::Exit;
+  else if (token == "null")
+    return TokenType::Null;
 
   return TokenType::Identifier;
 }
@@ -87,7 +90,7 @@ inline TokenType get_symbol(const char token) {
 struct Token {
   TokenType type;
   int line;
-  optional<string> value;
+  optional<string> rawValue;
 };
 
 class Tokenizer {

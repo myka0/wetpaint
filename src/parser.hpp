@@ -21,6 +21,8 @@ inline string to_string(const TokenType type) {
       return "elif";
     case TokenType::Exit:
       return "exit";
+    case TokenType::Null:
+      return "null";
     case TokenType::Int_Lit:
       return "int";
     case TokenType::Identifier:
@@ -56,15 +58,18 @@ inline string to_string(const TokenType type) {
 struct BinaryExpr; 
 
 struct Identifier {
-  Token value;
+  Token token;
 };
 
 struct IntLiteral {
-  Token value;
+  Token token;
+};
+
+struct NullLiteral {
 };
 
 struct Expr {
-  variant<Identifier, IntLiteral, BinaryExpr*> var;
+  variant<Identifier, IntLiteral, NullLiteral, BinaryExpr*> var;
 };
 
 struct BinaryExpr {
@@ -172,15 +177,22 @@ private:
       // User defined values
       case TokenType::Identifier: {
         Identifier ident;
-        ident.value = token;
+        ident.token = token;
         expr.var = ident;
         return expr;
       }
       // Constants and Numeric Constants
       case TokenType::Int_Lit: {
         IntLiteral intlit;
-        intlit.value = token;
+        intlit.token = token;
         expr.var = intlit;
+        return expr;
+      }
+      // Null Expression
+      case TokenType::Null: {
+        pop();
+        NullLiteral nulllit;
+        expr.var = nulllit;
         return expr;
       }
       // Grouping Expressions
@@ -191,7 +203,8 @@ private:
       }
       // Unidentified Tokens and Invalid Code Reached
       default: {
-        cerr << "Unexpected token found during parsing: " << to_string(token.type) << " " << pop().value.value() << "\n";
+        cerr << "Unexpected token found during parsing: " << to_string(token.type) 
+	  << " " << pop().rawValue.value() << "\n";
         exit(EXIT_FAILURE);
       }
     }
