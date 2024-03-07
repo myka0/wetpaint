@@ -1,11 +1,7 @@
 #pragma once
 
 #include "tokenize.hpp"
-#include <cstdlib>
-#include <iostream>
 #include <variant>
-#include <vector>
-#include <string>
 
 using namespace std; 
 
@@ -13,6 +9,8 @@ inline string to_string(const TokenType type) {
   switch (type) {
     case TokenType::Let:
       return "let";
+    case TokenType::Const:
+      return "const";
     case TokenType::If:
       return "if";
     case TokenType::Else:
@@ -51,8 +49,9 @@ inline string to_string(const TokenType type) {
       return ";";
     case TokenType::Hashtag:
       return "#";
+    default:
+     return "";
   }
-  return "";
 }
 
 struct BinaryExpr; 
@@ -78,8 +77,19 @@ struct BinaryExpr {
   Token operand;
 };
 
-struct Stmt {
+struct VarDeclaration {
+  string identifier;
+  optional<Expr> expr;
+  bool constant = false;
+};
+
+struct VarAssignment {
+  string identifier;
   Expr expr;
+};
+
+struct Stmt {
+  variant<Expr, VarDeclaration, VarAssignment> expr;
 };
 
 struct Program {
@@ -107,9 +117,66 @@ private:
   // Handle complex statement types
   Stmt parse_stmt() {
     Stmt stmt;
-    // Skip to parse_expr
+    
+    switch (peek().value().type) {
+      case TokenType::Let:
+      case TokenType::Const:
+	return parse_declaration_stmt();
+      default: 
+	return { parse_expr() };
+    }
     stmt.expr = parse_expr();
     return stmt;
+  }
+
+  // Handle variable declaration
+  Stmt parse_declaration_stmt() {
+    VarDeclaration variable;
+    
+    // Check for const keyword
+    if (peek().value().type == TokenType::Const) 
+      variable.constant = true;
+    pop();
+
+    // Check for identifier
+    if (peek().value().type != TokenType::Identifier) {
+      cerr << "Unexpected token: " << to_string(peek().value().type) << "\n" <<
+	"Expected identifier name following keyword `let` \n";
+      exit(EXIT_FAILURE);
+    }
+    variable.identifier = pop().rawValue.value();
+
+    // Variable in not assigned
+    if (peek().value().type == TokenType::Semicol) {
+      pop();
+
+      if (variable.constant == true) {
+	cerr << "Must assign value to constant variable.";
+	exit(EXIT_FAILURE);
+      }
+
+      return { variable };
+    }
+
+    // Check for variable assignment
+    if (peek().value().type != TokenType::Equals) {
+      cerr << "Unexpected token: " << to_string(peek().value().type) << "\n" <<
+	"Expected equals `=` following identifier in variable declaration.";
+      exit(EXIT_FAILURE);
+    }
+    pop();
+
+    variable.expr = parse_expr();
+    
+    // Check for statement close
+    if (peek().value().type != TokenType::Semicol) {
+      cerr << "Unexpected token: " << to_string(peek().value().type) << "\n" <<
+	"Expected semicolon `;` following statement declaration.";
+      exit(EXIT_FAILURE);
+    }
+    pop();
+
+    return { variable };
   }
 
   // Handle expressions  
@@ -141,7 +208,8 @@ private:
     *head_bin_expr = bin_expr;
     Expr expr = parse_primary_expr();
     
-    while (peek().value().type == TokenType::Star || peek().value().type == TokenType::FwdSlash ||
+    while (peek().value().type == TokenType::Star || 
+	  peek().value().type == TokenType::FwdSlash ||
           peek().value().type == TokenType::Modulo) { 
       *head_bin_expr = get_bin_expr(expr);
       expr = get_expr(*head_bin_expr);

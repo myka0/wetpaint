@@ -1,16 +1,11 @@
 #pragma once
 
+#include "environment.hpp"
 #include "parser.hpp"
-#include <cstdlib>
-#include <iostream>
-#include <variant>
-#include <vector>
-#include <string>
 
 using namespace std;
 
-struct NullVal {
-  
+struct NullVal { 
 };
 
 struct IntVal {
@@ -42,33 +37,55 @@ public:
 
 private:
   RuntimeVal evaluate(Stmt stmt) {
-    Expr expr = stmt.expr;
+    switch (stmt.expr.index()) {
+      // Expression
+      case 0: 
+	return eval_expr(get<Expr>(stmt.expr));
+
+      // Variable Declaration
+      case 1: { 
+	env.declare_var(get<VarDeclaration>(stmt.expr));
+	NullVal nullVal;
+	return { nullVal };
+      }
+      // Variable Assignment
+      case 2: {
+	env.assign_var(get<VarAssignment>(stmt.expr));
+	NullVal nullVal;
+	return { nullVal };
+      }
+      default: {
+	cerr << "This statement is not being interpreted yet.";
+        exit(EXIT_FAILURE);
+      }
+    }
+  }
+
+  RuntimeVal eval_expr(Expr expr) {
     switch (expr.var.index()) {
       // Indetifier
       case 0: {
-      
+	string ident = get<Identifier>(expr.var).token.rawValue.value();
+	return eval_expr(env.search_var(ident).value().expr.value());
       }
       // Int Literal
       case 1: {
 	IntVal integer;
-	cout << "before 1 \n";
-	integer.value = stoi(get<IntLiteral>(expr.var).token.rawValue.value());
-	cout << "after 1 \n";
+        integer.value = stoi(get<IntLiteral>(expr.var).token.rawValue.value());
 	return { integer };
       }
       // Null Literal
       case 2: {
-	NullVal nullVal;
-	return { nullVal };
+        NullVal nullVal;
+        return { nullVal };
       }
       // Binary Expression
       case 3: {
-	cout << "after 2 \n";
-	return eval_bin_expr(get<BinaryExpr*>(expr.var));
+        return eval_bin_expr(get<BinaryExpr*>(expr.var));
       }
       default: {
-	cerr << "This Node is not being interpreted yet.";
-	exit(EXIT_FAILURE);
+        cerr << "This Node is not being interpreted yet.";
+        exit(EXIT_FAILURE);
       }
     } 
   }
@@ -88,10 +105,7 @@ private:
   }
 
   IntVal eval_numeric_bin_expr(IntVal lhs, IntVal rhs, Token t_operand) {
-    cout << "before 3 \n";
-
     TokenType operand = t_operand.type;
-    cout << "after 3 \n";
     int result = -1;
 
     switch (operand) {
@@ -111,5 +125,7 @@ private:
   }
 
   const Program m_program;
+  vector<VarDeclaration> vars;
+  Environment env;
 };
 

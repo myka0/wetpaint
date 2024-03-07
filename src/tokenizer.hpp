@@ -16,14 +16,15 @@ enum class TokenType {
   // Literal Types
   Int_Lit,
   Identifier,
+  Null,
 
   //Keywords
   Let,
+  Const,
   If,
   Else,
   Elif,
   Exit,
-  Null,
 
   // Operators + Grouping
   Plus,
@@ -44,6 +45,8 @@ enum class TokenType {
 inline TokenType get_keyword(const string token) {
   if (token == "let") 
     return TokenType::Let;
+  else if (token == "const")
+    return TokenType::Const;
   else if (token == "if") 
     return TokenType::If;
   else if (token == "else") 
@@ -114,7 +117,7 @@ public:
 
         TokenType token = get_keyword(buffer);
         if (token == TokenType::Identifier)
-    tokens.push_back({ token, line_count, buffer });
+          tokens.push_back({ token, line_count, buffer });
         else
           tokens.push_back({ token, line_count });
         buffer.clear();
@@ -155,7 +158,7 @@ public:
       }
     }
 
-    tokens.push_back( {TokenType::EndOfFile, line_count} );
+      tokens.push_back({ TokenType::EndOfFile, line_count });
     m_idx = 0;
     return tokens;
   }

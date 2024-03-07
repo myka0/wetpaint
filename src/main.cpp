@@ -34,8 +34,6 @@ int main(int argc, char* argv[]) {
     Parser parser(tokens);
     Program program = parser.createAST();    
 
-    cout << program.stmts.size() << "\n";
-
     Interpreter interpreter(program);
     RuntimeVal value = interpreter.evaluate_program();
 
