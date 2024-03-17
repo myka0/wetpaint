@@ -17,6 +17,9 @@ enum class TokenType {
   Int_Lit,
   Identifier,
   Null,
+  True,
+  False,
+  String,
 
   //Keywords
   Let,
@@ -117,7 +120,7 @@ public:
 
         TokenType token = get_keyword(buffer);
         if (token == TokenType::Identifier)
-          tokens.push_back({ token, line_count, buffer });
+	  tokens.push_back({ token, line_count, buffer });
         else
           tokens.push_back({ token, line_count });
         buffer.clear();

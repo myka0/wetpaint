@@ -1,6 +1,6 @@
 #pragma once
 
-#include "tokenize.hpp"
+#include "tokenizer.hpp"
 #include <variant>
 
 using namespace std; 
@@ -22,7 +22,7 @@ inline string to_string(const TokenType type) {
     case TokenType::Null:
       return "null";
     case TokenType::Int_Lit:
-      return "int";
+      return "integer literal";
     case TokenType::Identifier:
       return "identifier";
     case TokenType::Plus:
@@ -125,8 +125,6 @@ private:
       default: 
 	return { parse_expr() };
     }
-    stmt.expr = parse_expr();
-    return stmt;
   }
 
   // Handle variable declaration
@@ -166,7 +164,7 @@ private:
     }
     pop();
 
-    variable.expr = parse_expr();
+    variable.expr = parse_additive_expr();
     
     // Check for statement close
     if (peek().value().type != TokenType::Semicol) {
@@ -180,21 +178,43 @@ private:
   }
 
   // Handle expressions  
-  Expr parse_expr() {
-    return parse_additive_expr();
+  Stmt parse_expr() {
+    return parse_assignment_expr();
+  }
+
+  // Handle variable reassignment
+  Stmt parse_assignment_expr() {
+    Expr lhs = parse_additive_expr();
+
+    // Check if lhs is an identifier and next token is an equals
+    if (lhs.var.index() == 0 && peek().value().type == TokenType::Equals) {
+      pop();
+      VarAssignment assignment;
+      assignment.identifier = get<Identifier>(lhs.var).token.rawValue.value(); 
+      assignment.expr = parse_additive_expr();
+
+      // Check for statement close
+      if (peek().value().type != TokenType::Semicol) {
+	cerr << "Unexpected token: " << to_string(peek().value().type) << "\n" <<
+	  "Expected semicolon `;` following statement declaration.";
+	exit(EXIT_FAILURE);
+      }
+      pop();
+
+      return { assignment };
+    }
+
+    return { lhs };
   }
 
   // Handle Addition & Subtraction operations
   Expr parse_additive_expr() {
-    BinaryExpr** head_bin_expr = (BinaryExpr**)malloc(sizeof(BinaryExpr));
-    BinaryExpr* bin_expr = (BinaryExpr*)malloc(sizeof(BinaryExpr));
-    
-    *head_bin_expr = bin_expr;
+    BinaryExpr* head_bin_expr = (BinaryExpr*)malloc(sizeof(BinaryExpr));
     Expr expr = parse_multiplicitave_expr();
     
     while (peek().value().type == TokenType::Plus || peek().value().type == TokenType::Minus) { 
-      *head_bin_expr = get_bin_expr(expr);
-      expr = get_expr(*head_bin_expr);
+      head_bin_expr = get_bin_expr(expr);
+      expr = get_expr(head_bin_expr);
     }
 
     return expr; 
@@ -202,17 +222,14 @@ private:
 
   // Handle Multiplication, Division & Modulo operations
   Expr parse_multiplicitave_expr() {
-    BinaryExpr** head_bin_expr = (BinaryExpr**)malloc(sizeof(BinaryExpr));
-    BinaryExpr* bin_expr = (BinaryExpr*)malloc(sizeof(BinaryExpr));
-    
-    *head_bin_expr = bin_expr;
+    BinaryExpr* head_bin_expr = new BinaryExpr;
     Expr expr = parse_primary_expr();
     
     while (peek().value().type == TokenType::Star || 
 	  peek().value().type == TokenType::FwdSlash ||
           peek().value().type == TokenType::Modulo) { 
-      *head_bin_expr = get_bin_expr(expr);
-      expr = get_expr(*head_bin_expr);
+      head_bin_expr = get_bin_expr(expr);
+      expr = get_expr(head_bin_expr);
     }
 
     return expr; 
@@ -220,7 +237,7 @@ private:
 
   // Populate binary expr
   BinaryExpr* get_bin_expr(Expr expr) {
-    BinaryExpr* bin_expr = (BinaryExpr*)malloc(sizeof(BinaryExpr));
+    BinaryExpr* bin_expr = new BinaryExpr;
 
     bin_expr->lhs = expr;
     bin_expr->operand = pop();
@@ -265,14 +282,14 @@ private:
       }
       // Grouping Expressions
       case TokenType::OpenPar: {
-        expr = parse_expr();
+        expr = parse_additive_expr();
         pop();
         return expr;
       }
       // Unidentified Tokens and Invalid Code Reached
       default: {
         cerr << "Unexpected token found during parsing: " << to_string(token.type) 
-	  << " " << pop().rawValue.value() << "\n";
+	  << " " << token.rawValue.value() << "\n";
         exit(EXIT_FAILURE);
       }
     }
