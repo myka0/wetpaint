@@ -21,8 +21,16 @@ inline string to_string(const TokenType type) {
       return "exit";
     case TokenType::Null:
       return "null";
-    case TokenType::Int_Lit:
+    case TokenType::Int:
       return "integer literal";
+    case TokenType::Float:
+      return "float literal";
+    case TokenType::String: 
+      return "string literal";
+    case TokenType::True:
+      return "true";
+    case TokenType::False:
+      return "fasle";
     case TokenType::Identifier:
       return "identifier";
     case TokenType::Plus:
@@ -64,11 +72,23 @@ struct IntLiteral {
   Token token;
 };
 
+struct FloatLiteral {
+  Token token;
+};
+
+struct StringLiteral {
+  Token token;
+};
+
+struct BoolLiteral {
+  Token token;
+};
+
 struct NullLiteral {
 };
 
 struct Expr {
-  variant<Identifier, IntLiteral, NullLiteral, BinaryExpr*> var;
+  variant<Identifier, IntLiteral, FloatLiteral, StringLiteral, BoolLiteral, NullLiteral, BinaryExpr*> var;
 };
 
 struct BinaryExpr {
@@ -256,32 +276,53 @@ private:
   // Parse literal values & grouping expr
   Expr parse_primary_expr() {
     Token token = pop();
-    Expr expr;
 
     switch (token.type) {
       // User defined values
       case TokenType::Identifier: {
         Identifier ident;
         ident.token = token;
-        expr.var = ident;
-        return expr;
+        return { ident };
       }
       // Constants and Numeric Constants
-      case TokenType::Int_Lit: {
+      case TokenType::Int: {
         IntLiteral intlit;
         intlit.token = token;
-        expr.var = intlit;
-        return expr;
+        return { intlit };
+      }
+      case TokenType::Float: {
+	FloatLiteral floatlit;
+	floatlit.token = token;
+	return { floatlit };
+      }
+      // String Value
+      case TokenType::String: {
+	StringLiteral stringlit;
+	stringlit.token = token;
+	return { stringlit };
+      }
+      // Boolean Value
+      case TokenType::True: {
+	BoolLiteral boollit;
+	token.rawValue = "1";
+	boollit.token = token;
+	return { boollit };
+      }
+      case TokenType::False: {
+	BoolLiteral boollit;
+	token.rawValue = "0";
+	boollit.token = token;
+	return { boollit };
       }
       // Null Expression
       case TokenType::Null: {
         pop();
         NullLiteral nulllit;
-        expr.var = nulllit;
-        return expr;
+        return { nulllit };
       }
       // Grouping Expressions
       case TokenType::OpenPar: {
+	Expr expr;
         expr = parse_additive_expr();
         pop();
         return expr;

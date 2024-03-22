@@ -14,7 +14,8 @@ using namespace std;
 
 enum class TokenType { 
   // Literal Types
-  Int_Lit,
+  Int,
+  Float,
   Identifier,
   Null,
   True,
@@ -60,6 +61,10 @@ inline TokenType get_keyword(const string token) {
     return TokenType::Exit;
   else if (token == "null")
     return TokenType::Null;
+  else if (token == "true")
+    return TokenType::True;
+  else if (token == "false")
+    return TokenType::False;
 
   return TokenType::Identifier;
 }
@@ -126,14 +131,38 @@ public:
         buffer.clear();
       }
       
-      // Get integer literal
+      // Get number literal
       else if (isdigit(peek().value())) {
-        while (isdigit(peek().value())) {
+        while (isdigit(peek().value())) 
           buffer.push_back(pop());
-        }
 
-        tokens.push_back({ TokenType::Int_Lit, line_count, buffer });
+	// Tokenize floating point value if it exists
+	if (peek().value() == '.') {
+	  buffer.push_back(pop());
+
+	  while (isdigit(peek().value())) 
+	    buffer.push_back(pop());
+	  
+	  tokens.push_back({ TokenType::Float, line_count, buffer });
+	}
+
+	// Tokenize integer 
+	else {
+	  tokens.push_back({ TokenType::Int, line_count, buffer });
+	}
         buffer.clear();
+      }
+
+      // Get string
+      else if (peek().value() == *"\"") {
+	pop();
+	while (peek().value() != *"\"") {
+	  buffer.push_back(pop());
+	}
+
+	pop();
+	tokens.push_back({ TokenType::String, line_count, buffer });
+	buffer.clear();
       }
 
       // Skip tokenizing comment
@@ -154,7 +183,7 @@ public:
         pop();
       }
 
-      // Token must be symbol or invalid
+      // Character must be symbol or invalid
       else {
         tokens.push_back({ get_symbol(peek().value()), line_count });
         pop();

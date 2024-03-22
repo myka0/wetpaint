@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
     }
     
     Tokenizer tokenizer(contents);
-    vector<Token> tokens = tokenizer.tokenize();
+    vector<Token> tokens = tokenizer.tokenize(); 
 
     Parser parser(tokens);
     Program program = parser.createAST();    
@@ -37,7 +37,17 @@ int main(int argc, char* argv[]) {
     Interpreter interpreter(program);
     RuntimeVal value = interpreter.evaluate_program();
 
-    cout << get<IntVal>(value.value).value << "\n";
+    //string result = get<StringVal>(value.value).value;
+
+    NumVal val = get<NumVal>(value.value);
+
+    auto result = 0.0;
+    if (val.value.index() == 0)
+      result = get<int>(val.value);
+    else
+      result = get<double>(val.value); 
+
+    cout << "Result: " << result << "\n";
 
     return EXIT_SUCCESS;
 }
