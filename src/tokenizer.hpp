@@ -1,16 +1,15 @@
 #pragma once
 
-#include <algorithm>
 #include <cctype>
 #include <cstddef>
 #include <cstdlib>
 #include <iostream>
 #include <string>
 #include <optional>
+#include <utility>
 #include <vector>
 
 using namespace std;
-
 
 enum class TokenType { 
   // Literal Types
@@ -46,58 +45,6 @@ enum class TokenType {
   EndOfFile
 };
 
-inline TokenType get_keyword(const string token) {
-  if (token == "let") 
-    return TokenType::Let;
-  else if (token == "const")
-    return TokenType::Const;
-  else if (token == "if") 
-    return TokenType::If;
-  else if (token == "else") 
-    return TokenType::Else;
-  else if (token == "elif")
-    return TokenType::Elif;
-  else if (token == "exit") 
-    return TokenType::Exit;
-  else if (token == "null")
-    return TokenType::Null;
-  else if (token == "true")
-    return TokenType::True;
-  else if (token == "false")
-    return TokenType::False;
-
-  return TokenType::Identifier;
-}
-
-inline TokenType get_symbol(const char token) {
-  if (token == '+') 
-    return TokenType::Plus;
-  else if (token == '-')
-    return TokenType::Minus;
-  else if (token == '*')
-    return TokenType::Star;
-  else if (token == '/')
-    return TokenType::FwdSlash;
-  else if (token == '%')
-    return TokenType::Modulo;
-  else if (token == '=')
-    return TokenType::Equals;
-  else if (token == '(')
-    return TokenType::OpenPar;
-  else if (token == ')')
-    return TokenType::ClosePar;
-  else if (token == '{')
-    return TokenType::OpenBrace;
-  else if (token == '}')
-    return TokenType::CloseBrace;
-  else if (token == ';')
-    return TokenType::Semicol;
-  else {
-    cerr << "Invalid character: " << token << endl;
-    exit(EXIT_FAILURE);
-  }
-}
-
 struct Token {
   TokenType type;
   int line;
@@ -107,7 +54,7 @@ struct Token {
 class Tokenizer {
 public:
   explicit Tokenizer(string src)
-    : m_src(src)
+    : m_src(std::move(src))
   {
   }
 
@@ -124,10 +71,12 @@ public:
         }
 
         TokenType token = get_keyword(buffer);
+
         if (token == TokenType::Identifier)
-	  tokens.push_back({ token, line_count, buffer });
+          tokens.push_back({ token, line_count, buffer });
         else
           tokens.push_back({ token, line_count });
+
         buffer.clear();
       }
       
@@ -136,33 +85,34 @@ public:
         while (isdigit(peek().value())) 
           buffer.push_back(pop());
 
-	// Tokenize floating point value if it exists
-	if (peek().value() == '.') {
-	  buffer.push_back(pop());
+        // Tokenize floating point value if it exists
+        if (peek().value() == '.') {
+          buffer.push_back(pop());
 
-	  while (isdigit(peek().value())) 
-	    buffer.push_back(pop());
-	  
-	  tokens.push_back({ TokenType::Float, line_count, buffer });
-	}
+          while (isdigit(peek().value()))
+            buffer.push_back(pop());
 
-	// Tokenize integer 
-	else {
-	  tokens.push_back({ TokenType::Int, line_count, buffer });
-	}
+          tokens.push_back({ TokenType::Float, line_count, buffer });
+        }
+
+        // Tokenize integer
+        else {
+          tokens.push_back({ TokenType::Int, line_count, buffer });
+        }
+
         buffer.clear();
       }
 
       // Get string
       else if (peek().value() == *"\"") {
-	pop();
-	while (peek().value() != *"\"") {
-	  buffer.push_back(pop());
-	}
+        pop();
+        while (peek().value() != *"\"") {
+          buffer.push_back(pop());
+        }
 
-	pop();
-	tokens.push_back({ TokenType::String, line_count, buffer });
-	buffer.clear();
+        pop();
+        tokens.push_back({ TokenType::String, line_count, buffer });
+        buffer.clear();
       }
 
       // Skip tokenizing comment
@@ -206,6 +156,58 @@ private:
 
   char pop() {
     return m_src.at(m_idx++);
+  }
+
+  static TokenType get_keyword(const string& token) {
+    if (token == "let") 
+      return TokenType::Let;
+    else if (token == "const")
+      return TokenType::Const;
+    else if (token == "if") 
+      return TokenType::If;
+    else if (token == "else") 
+      return TokenType::Else;
+    else if (token == "elif")
+      return TokenType::Elif;
+    else if (token == "exit") 
+      return TokenType::Exit;
+    else if (token == "null")
+      return TokenType::Null;
+    else if (token == "true")
+      return TokenType::True;
+    else if (token == "false")
+      return TokenType::False;
+
+    return TokenType::Identifier;
+  }
+
+  static TokenType get_symbol(const char token) {
+    if (token == '+') 
+      return TokenType::Plus;
+    else if (token == '-')
+      return TokenType::Minus;
+    else if (token == '*')
+      return TokenType::Star;
+    else if (token == '/')
+      return TokenType::FwdSlash;
+    else if (token == '%')
+      return TokenType::Modulo;
+    else if (token == '=')
+      return TokenType::Equals;
+    else if (token == '(')
+      return TokenType::OpenPar;
+    else if (token == ')')
+      return TokenType::ClosePar;
+    else if (token == '{')
+      return TokenType::OpenBrace;
+    else if (token == '}')
+      return TokenType::CloseBrace;
+    else if (token == ';')
+      return TokenType::Semicol;
+    else {
+      cerr << "Invalid character: " << token << endl; 
+      exit(EXIT_FAILURE);
+    }
   }
 
   const string m_src;

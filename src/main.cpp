@@ -1,11 +1,9 @@
-#include <cctype>
 #include <cstdlib>
 #include <iostream>
 #include <fstream>
 #include <ostream>
 #include <sstream>
 #include <string>
-#include <variant>
 #include <vector>
 
 #include "./interpreter.hpp"
@@ -29,25 +27,29 @@ int main(int argc, char* argv[]) {
     }
     
     Tokenizer tokenizer(contents);
-    vector<Token> tokens = tokenizer.tokenize(); 
+    vector<Token> tokens = tokenizer.tokenize();
 
-    Parser parser(tokens);
+    Error error(tokens);
+
+    Parser parser(tokens, error);
     Program program = parser.createAST();    
 
-    Interpreter interpreter(program);
-    RuntimeVal value = interpreter.evaluate_program();
+    Interpreter interpreter(program, error);
+    RuntimeVal runtimeVal = interpreter.evaluate_program();
+    
+    Token token;
+    int index = runtimeVal.value.index();
 
-    //string result = get<StringVal>(value.value).value;
+    if (index == 1) 
+      token = get<1>(runtimeVal.value).token;
+    else if (index == 2) 
+      token = get<2>(runtimeVal.value).token;
+    else if (index == 3) 
+      token = get<3>(runtimeVal.value).token;
+    else if (index == 4) 
+      token = get<4>(runtimeVal.value).token;
 
-    NumVal val = get<NumVal>(value.value);
-
-    auto result = 0.0;
-    if (val.value.index() == 0)
-      result = get<int>(val.value);
-    else
-      result = get<double>(val.value); 
-
-    cout << "Result: " << result << "\n";
+    cout << "Index: " << runtimeVal.value.index() << " | Result: " << token.rawValue.value() << "\n";
 
     return EXIT_SUCCESS;
 }
