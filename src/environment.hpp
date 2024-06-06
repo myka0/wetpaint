@@ -44,7 +44,7 @@ public:
     m_variables[idx].expr = assignment.expr;
   }
 
-  [[nodiscard]] optional<VarDeclaration> search_var(string identifier) {
+  optional<VarDeclaration> search_var(string identifier) {
     for (VarDeclaration variable : m_variables) {
       if (variable.identifier.rawValue.value() == identifier)
       return variable;

@@ -2,6 +2,7 @@
 
 #include "environment.hpp"
 #include "parser.hpp"
+#include <map>
 
 using namespace std;
 
@@ -13,6 +14,10 @@ struct RuntimeVal {
   variant<NullLiteral, IntLiteral, FloatLiteral, StringLiteral, BoolLiteral> value;
 };
 
+struct ObjectVal {
+  map<string, RuntimeVal> properties;  
+};
+
 class Interpreter {
 public:
   explicit Interpreter(Program program, Error error)
@@ -22,8 +27,7 @@ public:
 
   RuntimeVal evaluate_program() {
     RuntimeVal lastEval;
-    NullLiteral nullLit;
-    lastEval.value = nullLit;
+    lastEval.value = NullLiteral();
 
     for (Stmt stmt : m_program.stmts) {
       lastEval = evaluate(stmt);
@@ -37,63 +41,72 @@ private:
     switch (stmt.expr.index()) {
       // Expression
       case 0: {
-        return eval_expr(get<Expr>(stmt.expr));
+        return eval_expr(get<Expr>(stmt.expr), env);
       }
       // Variable Declaration
       case 1: { 
         env.declare_var(get<VarDeclaration>(stmt.expr));
-        NullLiteral nullLit;
-        return { nullLit };
+	return { NullLiteral() }; 
       }
       // Variable Assignment
       case 2: {
-      env.assign_var(get<VarAssignment>(stmt.expr));
-        NullLiteral nullLit;
-        return { nullLit };
+	env.assign_var(get<VarAssignment>(stmt.expr));
+	return { NullLiteral() };
       }
       default: {
-        NullLiteral nullLit;
-        return { nullLit };
+	return { NullLiteral () };
       } 
     }
   }
 
-  RuntimeVal eval_expr(Expr expr) {
+  RuntimeVal eval_expr(Expr expr, Environment env) {
     switch (expr.var.index()) {
       // Indetifier
       case 0: {
         string ident = get<Identifier>(expr.var).token.rawValue.value();
-        return eval_expr(env.search_var(ident).value().expr.value());
+        return eval_expr(env.search_var(ident).value().expr.value(), env);
       }
       // Int Literal
       case 1: {
-        NumVal num;
-        num.value = stoi(get<IntLiteral>(expr.var).token.rawValue.value());
-        return { get<1>(expr.var) };
+        return { get<IntLiteral>(expr.var) };
       }
       // Float Literal
       case 2: {
-        return { get<2>(expr.var) };
+        return { get<FloatLiteral>(expr.var) };
       }
       // String Literal
       case 3: {
-        return { get<3>(expr.var) };
+        return { get<StringLiteral>(expr.var) };
       }
       // Bool Literal
       case 4: {
-        return { get<4>(expr.var) };
+        return { get<BoolLiteral>(expr.var) };
       }
       // Null Literal
       case 5: {
-        return { get<5>(expr.var) };
+        return { get<NullLiteral>(expr.var) };
       }
       // Binary Expression
       case 6: {
         return eval_bin_expr(get<BinaryExpr*>(expr.var));
       }
+      // TODO Object Literal
+      case 7: {
+        cout << "Object Literal\n";
+        return { NullLiteral() };
+      }
+      // TODO Call Expr
+      case 8: {
+        cout << "Call Expr\n";
+        return { NullLiteral() };
+      }
+      // TODO Member Expr
+      case 9: {
+        cout << "Member Expr\n";
+        return { NullLiteral() };
+      }
       default: {
-        NullLiteral nullLit;
-        return { nullLit };
+        return { NullLiteral() };
       }
     } 
   }
@@ -219,7 +232,7 @@ private:
       }
     };
 
-    // Visit the variants to handle different combinations of int and double
+    // Visit the variants and complete the arithmetic operation
     return visit(perform_operation, lhsNum.value, rhsNum.value);
   }
 

@@ -40,7 +40,9 @@ int main(int argc, char* argv[]) {
     Token token;
     int index = runtimeVal.value.index();
 
-    if (index == 1) 
+    if (index == 0)
+      token.rawValue = "Null Literal";
+    else if (index == 1) 
       token = get<1>(runtimeVal.value).token;
     else if (index == 2) 
       token = get<2>(runtimeVal.value).token;

@@ -40,8 +40,12 @@ enum class TokenType {
   ClosePar,
   OpenBrace,
   CloseBrace,
+  OpenBracket,
+  CloseBracket,
+  Comma,
+  Colon,
   Semicol,
-  Hashtag,
+  Dot,
   EndOfFile
 };
 
@@ -202,8 +206,18 @@ private:
       return TokenType::OpenBrace;
     else if (token == '}')
       return TokenType::CloseBrace;
+    else if (token == '[')
+      return TokenType::OpenBracket;
+    else if (token == ']')
+      return TokenType::CloseBracket;
+    else if (token == ',')
+      return TokenType::Comma;
+    else if (token == ':')
+      return TokenType::Colon;
     else if (token == ';')
       return TokenType::Semicol;
+    else if (token == '.')
+      return TokenType::Dot;
     else {
       cerr << "Invalid character: " << token << endl; 
       exit(EXIT_FAILURE);

@@ -9,6 +9,12 @@ using namespace std;
 
 struct BinaryExpr; 
 
+struct ObjectLiteral;
+
+struct CallExpr;
+
+struct MemberExpr;
+
 struct Identifier {
   Token token;
 };
@@ -33,13 +39,8 @@ struct NullLiteral {
 };
 
 struct Expr {
-  variant<Identifier, IntLiteral, FloatLiteral, StringLiteral, BoolLiteral, NullLiteral, BinaryExpr*> var;
-};
-
-struct BinaryExpr {
-  Expr lhs;
-  Expr rhs;
-  Token operand;
+  variant<Identifier, IntLiteral, FloatLiteral, StringLiteral, BoolLiteral, NullLiteral, 
+    BinaryExpr*, ObjectLiteral*, CallExpr*, MemberExpr*> var;
 };
 
 struct VarDeclaration {
@@ -55,6 +56,32 @@ struct VarAssignment {
 
 struct Stmt {
   variant<Expr, VarDeclaration, VarAssignment> expr;
+};
+
+struct Property {
+  string key;
+  optional<Expr> value;
+};
+
+struct ObjectLiteral {
+  vector<Property> properties;
+};
+
+struct BinaryExpr {
+  Expr lhs;
+  Expr rhs;
+  Token operand;
+};
+
+struct CallExpr {
+  vector<Stmt> args;
+  Expr caller;
+};
+
+struct MemberExpr {
+  Expr object;
+  Expr property;
+  bool computed;
 };
 
 struct Program {
@@ -121,7 +148,7 @@ private:
     }
 
     pop();
-    variable.expr = parse_additive_expr();
+    variable.expr = parse_object_expr();
     
     // Check for statement close
     if (peek().value().type != TokenType::Semicol) {
@@ -140,36 +167,82 @@ private:
 
   // Handle variable reassignment
   Stmt parse_assignment_expr() {
-    Expr lhs = parse_additive_expr();
+    Expr lhs = parse_object_expr();
 
     // Check if lhs is an identifier and next token is an equals
     if (lhs.var.index() == 0 && peek().value().type == TokenType::Equals) {
       pop();
       VarAssignment assignment;
       assignment.identifier = get<Identifier>(lhs.var).token; 
-      assignment.expr = parse_additive_expr();
+      assignment.expr = parse_object_expr();
 
-      // Check for statement close
-      if (peek().value().type != TokenType::Semicol) {
-        m_error.error("Unexpected token: `" + m_error.to_string(peek().value().type) +
-          "` \nExpected semicolon `;` following statement declaration.\n", peek(-1).value());
-      }
-
-      pop();
       return { assignment };
     }
 
     return { lhs };
   }
 
+  Expr parse_object_expr() {
+    if (peek().value().type != TokenType::OpenBrace) {
+      return parse_additive_expr();
+    }
+
+    pop();
+    ObjectLiteral* object = new ObjectLiteral;
+
+    // Fill new object with all keys and values 
+    while (peek().has_value() && peek().value().type != TokenType::CloseBrace) {
+      // Check for key and get key if it exists
+      if (peek().value().type != TokenType::Identifier) {
+        m_error.error("Unexpected token: `" + m_error.to_string(peek().value().type) +
+        "` \nObject key expected.", peek().value());
+      }
+
+      string key = pop().rawValue.value();
+
+      // Check for shorthand key declaration
+      if (peek().value().type == TokenType::CloseBrace) {
+        object->properties.push_back({ key });
+        continue;
+      } 
+      else if (peek().value().type == TokenType::Comma) {
+        pop();
+        object->properties.push_back({ key });
+        continue;
+      }
+
+      // Check for key value
+      if (peek().value().type != TokenType::Equals) {
+        m_error.error("Unexpected token: `" + m_error.to_string(peek().value().type) +
+        "` \nExpected equals `=` following identifier in variable declaration.\n", peek(-1).value());
+      }
+
+      pop();
+      object->properties.push_back({ key, parse_object_expr() });
+
+      // Check for next key or object declaration close
+      if (peek().value().type == TokenType::Comma) {
+        pop();
+        continue;
+      }
+      else if (peek().value().type != TokenType::CloseBrace) {
+        m_error.error("Unexpected token: `" + m_error.to_string(peek().value().type) +
+        "` \nExpected closing bracket or comma following property.\n", peek(-1).value());
+      }
+    }
+
+    pop();
+    return { object };
+  }
+
   // Handle Addition & Subtraction operations
   Expr parse_additive_expr() {
-    BinaryExpr* head_bin_expr = (BinaryExpr*)malloc(sizeof(BinaryExpr));
+    BinaryExpr* head_bin_expr = new BinaryExpr;
     Expr expr = parse_multiplicitave_expr();
     
     while (peek().value().type == TokenType::Plus || peek().value().type == TokenType::Minus) { 
       head_bin_expr = get_bin_expr(expr);
-      expr = get_expr(head_bin_expr);
+      expr = Expr({ head_bin_expr });
     }
 
     return expr; 
@@ -178,14 +251,14 @@ private:
   // Handle Multiplication, Division & Modulo operations
   Expr parse_multiplicitave_expr() {
     BinaryExpr* head_bin_expr = new BinaryExpr;
-    Expr expr = parse_primary_expr();
+    Expr expr = parse_call_member_expr();
     
     while (peek().value().type == TokenType::Star
       || peek().value().type == TokenType::FwdSlash
       || peek().value().type == TokenType::Modulo) {
 
       head_bin_expr = get_bin_expr(expr);
-      expr = get_expr(head_bin_expr);
+      expr = Expr({ head_bin_expr });
     }
 
     return expr; 
@@ -202,11 +275,98 @@ private:
     return bin_expr;
   }
  
-  // Create expr with binary expr
-  Expr get_expr(BinaryExpr* bin_expr) {
-    Expr expr;
-    expr.var = bin_expr;
-    return expr;
+  // Parses a call member expression
+  Expr parse_call_member_expr() {
+    Expr member = parse_member_expr();
+
+    // If the next token is an open parenthesis, it's a function call
+    if (peek().value().type == TokenType::OpenPar) {
+      // Parse the call expression with the member as the caller
+      return { parse_call_expr(member) };
+    }
+
+    return member;
+  }
+
+  // Parses a call expression
+  CallExpr* parse_call_expr(Expr caller) {
+    CallExpr* callExpr = new CallExpr({ parse_args(), caller }); 
+
+    // If the next token is still an open parenthesis, it's a nested call
+    if (peek().value().type == TokenType::OpenPar) {
+      // Parse the nested call expression with the current callExpr as the caller
+      callExpr = parse_call_expr({ callExpr });
+    }
+
+    return callExpr;
+  }
+
+  // Parses arguments for a function call
+  vector<Stmt> parse_args() {
+    pop();
+    // If the next token is a closing parenthesis, there are no arguments
+    vector<Stmt> args = peek().value().type == TokenType::ClosePar ? vector<Stmt>() : parse_args_list();
+
+    // Expect a closing parenthesis to end the argument list
+    if (peek().value().type != TokenType::ClosePar) {
+      m_error.error("Expected closing parenthesis.", peek(-1).value());
+    }
+    pop();
+
+    return args;
+  }
+
+  // Parses a list of arguments
+  vector<Stmt> parse_args_list() {
+    vector<Stmt> args;
+    args.push_back(parse_assignment_expr());
+
+    // Parse arguments separated by commas
+    while (peek().value().type == TokenType::Comma) {
+      pop();
+      args.push_back(parse_assignment_expr());
+    }
+
+    return args;
+  }
+
+  // Parses a member expression
+  Expr parse_member_expr() {
+    Expr object = parse_primary_expr();
+
+    while (peek().value().type == TokenType::Dot || peek().value().type == TokenType::OpenBracket) {
+      Token token = pop();
+      Expr property;
+      bool computed;
+
+      // Handle dot operator for member access
+      if (token.type == TokenType::Dot) {
+        computed = false;
+        property = parse_primary_expr();
+
+        // Ensure the property is an identifier
+        if (property.var.index() != 0) {
+          m_error.error("Unexpected token: `dot`.\nDot operator must be used on an identifier.", token);
+        }
+      }
+      // Handle bracket operator for computed member access
+      else {
+        computed = true;
+        property = parse_object_expr();
+
+        // Ensure the next token is a closing bracket
+        if (peek().value().type != TokenType::CloseBracket) {
+          m_error.error("Unexpected token: `" + m_error.to_string(peek().value().type) +
+          "` \nExpected closing bracket.\n", peek(-1).value());
+        }
+      }
+
+      // Create a MemberExpr with the parsed details and update the object to be the new member expression
+      MemberExpr* member = new MemberExpr({ object, property, computed });
+      object.var = member;
+    }
+
+    return object;
   }
 
   // Parse literal values & grouping expr
@@ -216,50 +376,36 @@ private:
     switch (token.type) {
       // User defined values
       case TokenType::Identifier: {
-        Identifier ident;
-        ident.token = token;
-        return { ident };
+        return { Identifier({ token }) };
       } 
       // Constants and Numeric Constants
       case TokenType::Int: {
-        IntLiteral intlit;
-        intlit.token = token;
-        return { intlit };
+        return { IntLiteral({ token }) };
       }
       case TokenType::Float: {
-        FloatLiteral floatlit;
-        floatlit.token = token;
-        return { floatlit };
+        return { FloatLiteral({ token }) };
       }
       // String Value
       case TokenType::String: {
-        StringLiteral stringlit;
-        stringlit.token = token;
-        return { stringlit };
+        return { StringLiteral({ token }) };
       }
       // Boolean Value
       case TokenType::True: {
-        BoolLiteral boollit;
         token.rawValue = "1";
-        boollit.token = token;
-        return { boollit };
+        return { BoolLiteral({ token }) };
       }
       case TokenType::False: {
-        BoolLiteral boollit;
         token.rawValue = "0";
-        boollit.token = token;
-        return { boollit };
+        return { BoolLiteral({ token }) };
       }
       // Null Expression
       case TokenType::Null: {
         pop();
-        NullLiteral nulllit;
-        return { nulllit };
+        return { NullLiteral() };
       } 
       // Grouping Expressions
       case TokenType::OpenPar: {
-        Expr expr;
-        expr = parse_additive_expr();
+        Expr expr = Expr(parse_additive_expr()); 
         pop();
         return expr;
       }

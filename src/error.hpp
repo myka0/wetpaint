@@ -73,8 +73,8 @@ public:
         return "}";
       case TokenType::Semicol:
         return ";";
-      case TokenType::Hashtag:
-        return "#";
+      case TokenType::Dot:
+        return ".";
       default:
         return "";
     }
