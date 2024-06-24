@@ -1,92 +1,70 @@
 #pragma once
 
-#include <utility>
+#include "values/tokens.hpp"
 
-#include "tokenizer.hpp"
-
-using namespace std;
+#include <vector>
+#include <iostream>
+#include <unordered_map>
 
 enum class TokenType;
 struct Token;
 
 class Error {
 public:
-  explicit Error(vector<Token> tokens)
+  explicit Error(std::vector<Token> tokens)
     : m_tokens(std::move(tokens))
   {
   }
 
-  void error(const string& message, const Token& token) {
-    string line = get_line(token.line);
-
-    cerr << "Error on line: " << token.line << "\n" << line << "\n\n" << message << "\n";
+  [[noreturn]] void report_error(const std::string& message, const Token& token) {
+    std::string line = extract_line(token.line);
+    std::cerr << "Error on line: " << token.line << "\n" << line << "\n\n" << message << "\n";
     exit(EXIT_FAILURE);
   }
 
-  static string to_string(const TokenType type) {
-    switch (type) {
-      case TokenType::Let:
-        return "let";
-      case TokenType::Const:
-        return "const";
-      case TokenType::If:
-        return "if";
-      case TokenType::Else:
-        return "else";
-      case TokenType::Elif:
-        return "elif";
-      case TokenType::Exit:
-        return "exit";
-      case TokenType::Null:
-        return "null";
-      case TokenType::Int:
-        return "integer literal";
-      case TokenType::Float:
-        return "float literal";
-      case TokenType::String: 
-        return "string literal";
-      case TokenType::True:
-        return "true";
-      case TokenType::False:
-        return "false";
-      case TokenType::Identifier:
-        return "identifier";
-      case TokenType::Plus:
-        return "+";
-      case TokenType::Minus:
-        return "-";
-      case TokenType::Star:
-        return "*";
-      case TokenType::FwdSlash:
-        return "/";
-      case TokenType::Modulo:
-        return "%";
-      case TokenType::Equals:
-        return "=";
-      case TokenType::OpenPar:
-        return "(";
-      case TokenType::ClosePar:
-        return ")";
-      case TokenType::OpenBrace:
-        return "{";
-      case TokenType::CloseBrace:
-        return "}";
-      case TokenType::Semicol:
-        return ";";
-      case TokenType::Dot:
-        return ".";
-      default:
-        return "";
+  static std::string to_string(TokenType type) {
+    static const std::unordered_map<TokenType, std::string> token_type_map = {
+      {TokenType::Let, "let"},
+      {TokenType::Const, "const"},
+      {TokenType::If, "if"},
+      {TokenType::Else, "else"},
+      {TokenType::Elif, "elif"},
+      {TokenType::Exit, "exit"},
+      {TokenType::Null, "null"},
+      {TokenType::Int, "integer literal"},
+      {TokenType::Float, "float literal"},
+      {TokenType::String, "string literal"},
+      {TokenType::True, "true"},
+      {TokenType::False, "false"},
+      {TokenType::Identifier, "identifier"},
+      {TokenType::Plus, "+"},
+      {TokenType::Minus, "-"},
+      {TokenType::Star, "*"},
+      {TokenType::FwdSlash, "/"},
+      {TokenType::Modulo, "%"},
+      {TokenType::Equals, "="},
+      {TokenType::OpenPar, "("},
+      {TokenType::ClosePar, ")"},
+      {TokenType::OpenBrace, "{"},
+      {TokenType::CloseBrace, "}"},
+      {TokenType::Semicol, ";"},
+      {TokenType::Dot, "."}
+    };
+
+    auto it = token_type_map.find(type);
+    if (it != token_type_map.end()) {
+      return it->second;
+    } else {
+      return "";
     }
   }
 
 private:
-  string get_line(const int targetLine) {
-    string line;
-    line += std::to_string(targetLine) + " | ";
+  std::string extract_line(const int targetLine) {
+    std::string line = std::to_string(targetLine) + " | ";
 
     // Iterate over tokens and append tokens on the target line
-    for (Token token : m_tokens) {
+    for (const Token token : m_tokens) {
       if (token.line == targetLine) {
         // If the token has a raw value, append it to line
         if (token.rawValue.has_value()) {
@@ -96,7 +74,6 @@ private:
 
         // If the token does not have a raw value, append its type
         line += to_string(token.type) + " ";
-        continue;
       }
       
       else if (token.line > targetLine)
@@ -106,6 +83,7 @@ private:
     return line;
   }
 
-  const vector<Token> m_tokens;
+private:
+  const std::vector<Token> m_tokens;
 };
 

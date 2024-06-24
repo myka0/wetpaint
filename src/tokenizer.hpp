@@ -1,93 +1,46 @@
 #pragma once
 
-#include <cctype>
-#include <cstddef>
-#include <cstdlib>
-#include <iostream>
-#include <string>
-#include <optional>
-#include <utility>
+#include "values/tokens.hpp"
+
 #include <vector>
-
-using namespace std;
-
-enum class TokenType { 
-  // Literal Types
-  Int,
-  Float,
-  Identifier,
-  Null,
-  True,
-  False,
-  String,
-
-  //Keywords
-  Let,
-  Const,
-  If,
-  Else,
-  Elif,
-  Exit,
-
-  // Operators + Grouping
-  Plus,
-  Minus,
-  Star,
-  FwdSlash,
-  Modulo,
-  Equals, 
-  OpenPar,
-  ClosePar,
-  OpenBrace,
-  CloseBrace,
-  OpenBracket,
-  CloseBracket,
-  Comma,
-  Colon,
-  Semicol,
-  Dot,
-  EndOfFile
-};
-
-struct Token {
-  TokenType type;
-  int line;
-  optional<string> rawValue;
-};
+#include <iostream>
+#include <unordered_map>
 
 class Tokenizer {
 public:
-  explicit Tokenizer(string src)
-    : m_src(std::move(src))
+  explicit Tokenizer(std::string src)
+    : m_src(std::move(src)), m_idx(0)
   {
   }
 
-  vector<Token> tokenize() {
-    vector<Token> tokens;
-    string buffer;
+  std::vector<Token> tokenize() {
+    std::vector<Token> tokens;
+    std::string buffer;
     int line_count = 1;
 
     while(peek().has_value()) {
       // Get keyword
       if (isalpha(peek().value())) {
-        while (isalnum(peek().value())) {
+        while (isalnum(peek().value()) || peek().value() == '_') {
           buffer.push_back(pop());
         }
 
         TokenType token = get_keyword(buffer);
 
-        if (token == TokenType::Identifier)
+        if (token == TokenType::Identifier) {
           tokens.push_back({ token, line_count, buffer });
-        else
+        } else {
           tokens.push_back({ token, line_count });
+        }
 
         buffer.clear();
       }
       
       // Get number literal
       else if (isdigit(peek().value())) {
-        while (isdigit(peek().value())) 
+        while (isdigit(peek().value())) {
           buffer.push_back(pop());
+        }
 
         // Tokenize floating point value if it exists
         if (peek().value() == '.') {
@@ -150,80 +103,63 @@ public:
   }
 
 private:
-  [[nodiscard]] optional<char> peek(int ahead = 0) const {
+  [[nodiscard]] std::optional<char> peek(int ahead = 0) const {
     if (m_idx + ahead >= m_src.length()) {
       return {};
     }
 
-    return m_src.at(m_idx);
+    return m_src[m_idx + ahead];
   }
 
   char pop() {
-    return m_src.at(m_idx++);
+    return m_src[m_idx++];
   }
 
-  static TokenType get_keyword(const string& token) {
-    if (token == "let") 
-      return TokenType::Let;
-    else if (token == "const")
-      return TokenType::Const;
-    else if (token == "if") 
-      return TokenType::If;
-    else if (token == "else") 
-      return TokenType::Else;
-    else if (token == "elif")
-      return TokenType::Elif;
-    else if (token == "exit") 
-      return TokenType::Exit;
-    else if (token == "null")
-      return TokenType::Null;
-    else if (token == "true")
-      return TokenType::True;
-    else if (token == "false")
-      return TokenType::False;
+  TokenType get_keyword(const std::string& token) const {
+    static const std::unordered_map<std::string, TokenType> keywords = {
+      {"let", TokenType::Let},
+      {"const", TokenType::Const},
+      {"if", TokenType::If},
+      {"else", TokenType::Else},
+      {"elif", TokenType::Elif},
+      {"exit", TokenType::Exit},
+      {"null", TokenType::Null},
+      {"true", TokenType::True},
+      {"false", TokenType::False}
+    };
 
-    return TokenType::Identifier;
+    auto it = keywords.find(token);
+    return it != keywords.end() ? it->second : TokenType::Identifier;
   }
 
-  static TokenType get_symbol(const char token) {
-    if (token == '+') 
-      return TokenType::Plus;
-    else if (token == '-')
-      return TokenType::Minus;
-    else if (token == '*')
-      return TokenType::Star;
-    else if (token == '/')
-      return TokenType::FwdSlash;
-    else if (token == '%')
-      return TokenType::Modulo;
-    else if (token == '=')
-      return TokenType::Equals;
-    else if (token == '(')
-      return TokenType::OpenPar;
-    else if (token == ')')
-      return TokenType::ClosePar;
-    else if (token == '{')
-      return TokenType::OpenBrace;
-    else if (token == '}')
-      return TokenType::CloseBrace;
-    else if (token == '[')
-      return TokenType::OpenBracket;
-    else if (token == ']')
-      return TokenType::CloseBracket;
-    else if (token == ',')
-      return TokenType::Comma;
-    else if (token == ':')
-      return TokenType::Colon;
-    else if (token == ';')
-      return TokenType::Semicol;
-    else if (token == '.')
-      return TokenType::Dot;
-    else {
-      cerr << "Invalid character: " << token << endl; 
-      exit(EXIT_FAILURE);
+  TokenType get_symbol(char token) const {
+    static const std::unordered_map<char, TokenType> symbols = {
+      {'+', TokenType::Plus},
+      {'-', TokenType::Minus},
+      {'*', TokenType::Star},
+      {'/', TokenType::FwdSlash},
+      {'%', TokenType::Modulo},
+      {'=', TokenType::Equals},
+      {'(', TokenType::OpenPar},
+      {')', TokenType::ClosePar},
+      {'{', TokenType::OpenBrace},
+      {'}', TokenType::CloseBrace},
+      {'[', TokenType::OpenBracket},
+      {']', TokenType::CloseBracket},
+      {',', TokenType::Comma},
+      {':', TokenType::Colon},
+      {';', TokenType::Semicol},
+      {'.', TokenType::Dot}
+    };
+        
+    auto it = symbols.find(token);
+    if (it != symbols.end()) {
+      return it->second;
     }
+    std::cerr << "Invalid character: " << token << "\n"; 
+    std::exit(EXIT_FAILURE);
   }
 
-  const string m_src;
-  size_t m_idx = 0;
+  const std::string m_src;
+  size_t m_idx;
 };

@@ -1,97 +1,12 @@
 #pragma once
 
-#include "tokenizer.hpp"
-#include <variant>
-
 #include "error.hpp"
-
-using namespace std; 
-
-struct BinaryExpr; 
-
-struct ObjectLiteral;
-
-struct CallExpr;
-
-struct MemberExpr;
-
-struct Identifier {
-  Token token;
-};
-
-struct IntLiteral {
-  Token token;
-};
-
-struct FloatLiteral {
-  Token token;
-};
-
-struct StringLiteral {
-  Token token;
-};
-
-struct BoolLiteral {
-  Token token;
-};
-
-struct NullLiteral {
-};
-
-struct Expr {
-  variant<Identifier, IntLiteral, FloatLiteral, StringLiteral, BoolLiteral, NullLiteral, 
-    BinaryExpr*, ObjectLiteral*, CallExpr*, MemberExpr*> var;
-};
-
-struct VarDeclaration {
-  Token identifier;
-  optional<Expr> expr;
-  bool constant = false;
-};
-
-struct VarAssignment {
-  Token identifier;
-  Expr expr;
-};
-
-struct Stmt {
-  variant<Expr, VarDeclaration, VarAssignment> expr;
-};
-
-struct Property {
-  string key;
-  optional<Expr> value;
-};
-
-struct ObjectLiteral {
-  vector<Property> properties;
-};
-
-struct BinaryExpr {
-  Expr lhs;
-  Expr rhs;
-  Token operand;
-};
-
-struct CallExpr {
-  vector<Stmt> args;
-  Expr caller;
-};
-
-struct MemberExpr {
-  Expr object;
-  Expr property;
-  bool computed;
-};
-
-struct Program {
-  vector<Stmt> stmts;
-};
+#include "values/ast.hpp"
 
 class Parser {
 public:
-  explicit Parser(vector<Token> tokens, Error error)
-    : m_tokens(tokens), m_error(error)
+  explicit Parser(std::vector<Token> tokens, Error error)
+    : m_tokens(std::move(tokens)), m_error(std::move(error)), m_idx(0)
   {
   }
 
@@ -128,14 +43,14 @@ private:
       variable.constant = true;
 
     pop();
-    variable.identifier = pop();
+    variable.identifier = { pop() };
 
     // Variable in not assigned
     if (peek().value().type == TokenType::Semicol) {
       pop();
 
       if (variable.constant == true) {
-        m_error.error("Must assign value to constant variable.", peek(-1).value());
+        m_error.report_error("Must assign value to constant variable.", peek(-1).value());
       }
 
       return { variable };
@@ -143,20 +58,12 @@ private:
 
     // Check for variable assignment
     if (peek().value().type != TokenType::Equals) {
-      m_error.error("Unexpected token: `" + m_error.to_string(peek().value().type) + 
-        "` \nExpected equals `=` following identifier in variable declaration.\n", peek(-1).value());
+      m_error.report_error("Unexpected token: `" + m_error.to_string(peek().value().type) + 
+        "` \nExpected equals `=` following identifier in variable declaration.", peek(-1).value());
     }
 
     pop();
     variable.expr = parse_object_expr();
-    
-    // Check for statement close
-    if (peek().value().type != TokenType::Semicol) {
-      m_error.error("Unexpected token: `" + m_error.to_string(peek().value().type) + 
-        "` \nExpected semicolon `;` following statement declaration.\n", peek(-1).value());
-    }
-
-    pop();
     return { variable };
   }
 
@@ -173,9 +80,9 @@ private:
     if (lhs.var.index() == 0 && peek().value().type == TokenType::Equals) {
       pop();
       VarAssignment assignment;
-      assignment.identifier = get<Identifier>(lhs.var).token; 
+      assignment.identifier = std::get<Identifier>(lhs.var); 
       assignment.expr = parse_object_expr();
-
+      
       return { assignment };
     }
 
@@ -194,11 +101,11 @@ private:
     while (peek().has_value() && peek().value().type != TokenType::CloseBrace) {
       // Check for key and get key if it exists
       if (peek().value().type != TokenType::Identifier) {
-        m_error.error("Unexpected token: `" + m_error.to_string(peek().value().type) +
-        "` \nObject key expected.", peek().value());
+        m_error.report_error("Unexpected token: `" + m_error.to_string(peek().value().type) +
+          "` \nObject key expected.", peek().value());
       }
 
-      string key = pop().rawValue.value();
+      Identifier key = { pop() };
 
       // Check for shorthand key declaration
       if (peek().value().type == TokenType::CloseBrace) {
@@ -213,8 +120,8 @@ private:
 
       // Check for key value
       if (peek().value().type != TokenType::Equals) {
-        m_error.error("Unexpected token: `" + m_error.to_string(peek().value().type) +
-        "` \nExpected equals `=` following identifier in variable declaration.\n", peek(-1).value());
+        m_error.report_error("Unexpected token: `" + m_error.to_string(peek().value().type) +
+          "` \nExpected equals `=` following identifier in variable declaration.", peek(-1).value());
       }
 
       pop();
@@ -226,8 +133,8 @@ private:
         continue;
       }
       else if (peek().value().type != TokenType::CloseBrace) {
-        m_error.error("Unexpected token: `" + m_error.to_string(peek().value().type) +
-        "` \nExpected closing bracket or comma following property.\n", peek(-1).value());
+        m_error.report_error("Unexpected token: `" + m_error.to_string(peek().value().type) +
+          "` \nExpected closing bracket or comma following property.", peek(-1).value());
       }
     }
 
@@ -302,14 +209,14 @@ private:
   }
 
   // Parses arguments for a function call
-  vector<Stmt> parse_args() {
+  std::vector<Stmt> parse_args() {
     pop();
     // If the next token is a closing parenthesis, there are no arguments
-    vector<Stmt> args = peek().value().type == TokenType::ClosePar ? vector<Stmt>() : parse_args_list();
+    std::vector<Stmt> args = peek().value().type == TokenType::ClosePar ? std::vector<Stmt>() : parse_args_list();
 
     // Expect a closing parenthesis to end the argument list
     if (peek().value().type != TokenType::ClosePar) {
-      m_error.error("Expected closing parenthesis.", peek(-1).value());
+      m_error.report_error("Expected closing parenthesis.", peek(-1).value());
     }
     pop();
 
@@ -317,8 +224,8 @@ private:
   }
 
   // Parses a list of arguments
-  vector<Stmt> parse_args_list() {
-    vector<Stmt> args;
+  std::vector<Stmt> parse_args_list() {
+    std::vector<Stmt> args;
     args.push_back(parse_assignment_expr());
 
     // Parse arguments separated by commas
@@ -330,45 +237,29 @@ private:
     return args;
   }
 
-  // Parses a member expression
+  // Recursively parses a member expression
   Expr parse_member_expr() {
     Expr object = parse_primary_expr();
 
-    while (peek().value().type == TokenType::Dot || peek().value().type == TokenType::OpenBracket) {
+    // Handle dot operator for member access
+    if (peek().value().type == TokenType::Dot) {
       Token token = pop();
-      Expr property;
-      bool computed;
-
-      // Handle dot operator for member access
-      if (token.type == TokenType::Dot) {
-        computed = false;
-        property = parse_primary_expr();
-
-        // Ensure the property is an identifier
-        if (property.var.index() != 0) {
-          m_error.error("Unexpected token: `dot`.\nDot operator must be used on an identifier.", token);
-        }
-      }
-      // Handle bracket operator for computed member access
-      else {
-        computed = true;
-        property = parse_object_expr();
-
-        // Ensure the next token is a closing bracket
-        if (peek().value().type != TokenType::CloseBracket) {
-          m_error.error("Unexpected token: `" + m_error.to_string(peek().value().type) +
-          "` \nExpected closing bracket.\n", peek(-1).value());
-        }
+      Expr member = parse_member_expr();
+      
+      // Ensure the property is an identifier
+      if (object.var.index() != 0) {
+        m_error.report_error("Unexpected token: `dot`.\n"
+          "Dot operator must be used on an identifier.", token);
       }
 
-      // Create a MemberExpr with the parsed details and update the object to be the new member expression
-      MemberExpr* member = new MemberExpr({ object, property, computed });
-      object.var = member;
+      Identifier ident = std::get<0>(object.var);
+
+      // Update the object to be a new member expression with the paresed details
+      object.var = new MemberExpr({ ident, member });
     }
 
     return object;
   }
-
   // Parse literal values & grouping expr
   Expr parse_primary_expr() {
     Token token = pop();
@@ -411,18 +302,17 @@ private:
       }
       // Unidentified Tokens and Invalid Code Reached
       default: {
-        string rawValue = "";
+        std::string rawValue = "";
         if (token.rawValue.has_value())
           rawValue = token.rawValue.value();
 
-        m_error.error("Unexpected token found during parsing: `" + m_error.to_string(token.type) +
-          "`\n" + rawValue, peek(-1).value());
-        exit(EXIT_FAILURE);
+        m_error.report_error("Unexpected token found during parsing: `"
+          + m_error.to_string(token.type) + "`", peek(-1).value());
       }
     }
   }
 
-  [[nodiscard]] optional<Token> peek(int ahead = 0) const { 
+  [[nodiscard]] std::optional<Token> peek(int ahead = 0) const { 
     if (m_idx + ahead >= m_tokens.size()) {
       return {};
     }
@@ -438,7 +328,8 @@ private:
     return m_tokens.at(m_idx).type != TokenType::EndOfFile;
   }
 
-  const vector<Token> m_tokens;
+private:
+  const std::vector<Token> m_tokens;
   Error m_error;
-  size_t m_idx = 0;
+  size_t m_idx;
 };
