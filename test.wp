@@ -8,16 +8,26 @@ let z = false
 let a = 1.12
 
 let value = x + 2 + 3 * (4 + 5 / (5 % 2)) - 1 * 8 - 1
+print("Hello, world", " | ", value)
 
+# Objects
 let obj = {
   a,
   b = 12,
   c = "test",
   foo = {
-    bar = 4
+    bar = 3.24
   }
 }
 
-#y + x
-print("Hello, world", " | ", value)
-print(a + 2.40 - 0.34)
+print(a + 2.40 - 0.34 + obj.foo.bar)
+
+# User defined functions
+fn adder(x, y) {
+  return x + y
+}
+
+print(adder(2, 3))
+
+let test = adder(2 - 1, 4 * 2)
+print(test)

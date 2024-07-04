@@ -16,10 +16,11 @@ enum class TokenType {
   //Keywords
   Let,
   Const,
+  Fn,
   If,
   Else,
   Elif,
-  Exit,
+  Return,
 
   // Operators + Grouping
   Plus,
@@ -44,6 +45,6 @@ enum class TokenType {
 struct Token {
   TokenType type;
   int line;
-  std::optional<std::string> rawValue;
+  std::optional<std::string> raw_value;
 };
 

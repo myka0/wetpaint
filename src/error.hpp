@@ -26,17 +26,18 @@ public:
     static const std::unordered_map<TokenType, std::string> token_type_map = {
       {TokenType::Let, "let"},
       {TokenType::Const, "const"},
+      {TokenType::Fn, "function"},
       {TokenType::If, "if"},
       {TokenType::Else, "else"},
       {TokenType::Elif, "elif"},
-      {TokenType::Exit, "exit"},
+      {TokenType::Return, "return"},
       {TokenType::Null, "null"},
-      {TokenType::Int, "integer literal"},
-      {TokenType::Float, "float literal"},
-      {TokenType::String, "string literal"},
+      {TokenType::Int, "Integer Literal"},
+      {TokenType::Float, "Float Literal"},
+      {TokenType::String, "String Literal"},
+      {TokenType::Identifier, "Identifier"},
       {TokenType::True, "true"},
       {TokenType::False, "false"},
-      {TokenType::Identifier, "identifier"},
       {TokenType::Plus, "+"},
       {TokenType::Minus, "-"},
       {TokenType::Star, "*"},
@@ -47,8 +48,13 @@ public:
       {TokenType::ClosePar, ")"},
       {TokenType::OpenBrace, "{"},
       {TokenType::CloseBrace, "}"},
+      {TokenType::OpenBracket, "["},
+      {TokenType::CloseBracket, "]"},
+      {TokenType::Comma, ","},
+      {TokenType::Colon, ":"},
       {TokenType::Semicol, ";"},
-      {TokenType::Dot, "."}
+      {TokenType::Dot, "."},
+      {TokenType::EndOfFile, "eof"}
     };
 
     auto it = token_type_map.find(type);
@@ -60,15 +66,15 @@ public:
   }
 
 private:
-  std::string extract_line(const int targetLine) {
-    std::string line = std::to_string(targetLine) + " | ";
+  std::string extract_line(const int target_line) {
+    std::string line = std::to_string(target_line) + " | ";
 
     // Iterate over tokens and append tokens on the target line
     for (const Token token : m_tokens) {
-      if (token.line == targetLine) {
+      if (token.line == target_line) {
         // If the token has a raw value, append it to line
-        if (token.rawValue.has_value()) {
-          line += token.rawValue.value() + " ";
+        if (token.raw_value.has_value()) {
+          line += token.raw_value.value() + " ";
           continue;
         }
 
@@ -76,7 +82,7 @@ private:
         line += to_string(token.type) + " ";
       }
       
-      else if (token.line > targetLine)
+      else if (token.line > target_line)
       break;
     }
 

@@ -2,156 +2,188 @@
 
 #include "environment.hpp"
 
-#include <algorithm>
-#include <functional>
-
-struct NumVal {
-  std::variant<int, double> value;
-};
+#include <variant>
 
 class Interpreter {
 public:
-  explicit Interpreter(Program program, Error error)
-    : m_program(program), m_error(error), env(error) 
+  explicit Interpreter(Program program, Error error, Environment env)
+    : m_program(program), m_error(error), m_env(env) 
   {
   }
 
   RuntimeVal evaluate_program() {
-    RuntimeVal lastEval = { NullLiteral() };
+    RuntimeVal last_eval{ NullLiteral() };
 
     for (Stmt stmt : m_program.stmts) {
-      lastEval = evaluate(stmt);
+      last_eval = evaluate(stmt);
+
+      if (last_eval.is<ReturnExpr>()) {
+        return eval_expr(last_eval.get<ReturnExpr>().expr);
+      }
     }
 
-    return lastEval;
+    return last_eval;
   }
 
 private:
   RuntimeVal evaluate(Stmt stmt) {
-    switch (stmt.expr.index()) {
-      // Expression
-      case 0: {
-        return eval_expr(std::get<Expr>(stmt.expr), env);
+    if (stmt.is<Expr>()) {
+      Expr expr = stmt.get<Expr>();
+      if (expr.is<ReturnExpr>()) {
+        return expr.get<ReturnExpr>();
       }
-      // Variable Declaration
-      case 1: { 
-        env.declare_var(std::get<VarDeclaration>(stmt.expr));
-        return { NullLiteral() };
-      }
-      // Variable Assignment
-      case 2: {
-        env.assign_var(std::get<VarAssignment>(stmt.expr));
-        return { NullLiteral() };
-      }
-      default: {
-        return { NullLiteral() };
-      } 
+
+      return eval_expr(expr);
+    }
+    else if (stmt.is<VarDeclaration>()) {
+      m_env.declare_var(stmt.get<VarDeclaration>());
+      return NullLiteral();
+    }
+    else if (stmt.is<VarAssignment>()) {
+      m_env.assign_var(stmt.get<VarAssignment>());
+      return NullLiteral();
+    }
+    else if (stmt.is<FunctionDeclaration>()) {
+      FunctionDeclaration function_dec = stmt.get<FunctionDeclaration>(); 
+      std::shared_ptr<Environment> env = std::make_shared<Environment>(m_env);
+
+      Function function{ function_dec, env };
+      m_env.declare_var(VarDeclaration{ function_dec.name, function, true });
+      return NullLiteral();
+    }
+    else {
+      return NullLiteral();
     }
   }
 
-  RuntimeVal eval_expr(Expr expr, Environment env) {
-    switch (expr.var.index()) {
-      // Indetifier
-      case 0: {
-        Identifier ident = std::get<Identifier>(expr.var);
-        return eval_expr(env.has_var(ident).expr.value(), env);
-      }
-      // Literal Types
-      case 1:   // IntLiteral
-      case 2:   // FloatLiteral
-      case 3:   // StringLiteral
-      case 4:   // BoolLiteral
-      case 5: { // NullLiteral
-        RuntimeVal runtimeVal = std::visit([](const auto& value) -> RuntimeVal {
-          // Deduce the type of the Expr and return it as a RuntimeVal
-          using T = std::decay_t<decltype(value)>;
-          if constexpr (std::is_same_v<T, IntLiteral> || std::is_same_v<T, FloatLiteral> || 
-                        std::is_same_v<T, StringLiteral> || std::is_same_v<T, BoolLiteral> ||
-                        std::is_same_v<T, NullLiteral>) {
-            return { value };
-          }
-          return { NullLiteral() };
-        }, expr.var);
+  RuntimeVal eval_expr(Expr expr) {
+    // Map for handling literals
+    static const std::unordered_map<std::type_index, std::function<RuntimeVal(const Expr&)>> literals {
+      { typeid(IntLiteral), [](const Expr& e) { return e.get<IntLiteral>(); } },
+      { typeid(FloatLiteral), [](const Expr& e) { return e.get<FloatLiteral>(); } },
+      { typeid(StringLiteral), [](const Expr& e) { return e.get<StringLiteral>(); } },
+      { typeid(BoolLiteral), [](const Expr& e) { return e.get<BoolLiteral>(); } },
+      { typeid(NullLiteral), [](const Expr&) { return NullLiteral(); } }
+    };
 
-        return runtimeVal;
-      }
-      // Binary Expression
-      case 6: {
-        return eval_bin_expr(std::get<BinaryExpr*>(expr.var));
-      }
-      // Object Literal
-      case 7: {
-        eval_object_literal(std::get<ObjectLiteral*>(expr.var), env);
-        return { NullLiteral() };
-      }
-      // Call Expr
-      case 8: {
-        return eval_call_expr(std::get<CallExpr*>(expr.var), env);
-      }
-      // Member Expr
-      case 9: {
-        return eval_member_expr(std::get<MemberExpr*>(expr.var), env);
-      }
-      default: {
-        return { NullLiteral() };
-      }
-    } 
+    // Get the value of literal types
+    auto it = literals.find(expr.type());
+    if (it != literals.end()) {
+      return it->second(expr);
+    }
+
+    // Handle Identifier
+    if (expr.is<Identifier>()) {
+      Identifier ident = expr.get<Identifier>();
+      return eval_expr(m_env.search_var(ident).expr.value());
+    }
+    // Handle other expression types
+    else if (expr.is<BinaryExpr>()) {
+      return eval_bin_expr(expr.get<BinaryExpr>());
+    }
+    else if (expr.is<ObjectLiteral>()) {
+      return eval_object_literal(expr.get<ObjectLiteral>());
+    }
+    else if (expr.is<CallExpr>()) {
+      return eval_call_expr(expr.get<CallExpr>());
+    }
+    else if (expr.is<MemberExpr>()) {
+      return eval_member_expr(expr.get<MemberExpr>());
+    }
+    else if (expr.is<RuntimeVal>()) {
+      return expr.get<RuntimeVal>();
+    }
+    else {
+      return NullLiteral();
+    }
   }
 
-  void eval_object_literal(ObjectLiteral* object, Environment env) {
-    for (Property property : object->properties) {
+  RuntimeVal eval_object_literal(ObjectLiteral object) {
+    for (Property property : object.properties) {
       // If property has a value declare the variable in the environment
       if (property.value.has_value()) {
         VarDeclaration declaration = { property.key, property.value.value() };
-        env.declare_var(declaration);
+        m_env.declare_var(declaration);
       } 
       else { 
         // If the property does not have a value make sure it has already been declared
-        env.has_var(property.key);
+        m_env.search_var(property.key);
       }
     }
+    
+    return NullLiteral();
   }
 
-  RuntimeVal eval_call_expr(CallExpr* callExpr, Environment env) {
+  RuntimeVal eval_call_expr(CallExpr call_expr) {
     std::vector<RuntimeVal> args;
-    for (Stmt arg : callExpr->args) {
+    for (Stmt arg : call_expr.args) {
       args.push_back(evaluate(arg));
     }
 
     // Retrieve the function identifier from the caller expression
-    Identifier caller = std::get<Identifier>(callExpr->caller.var);
-    Expr expr = env.has_var(caller).expr.value();
+    Identifier caller = call_expr.caller.get<Identifier>();
+    Expr expr = m_env.search_var(caller).expr.value();
 
     // Call the fucntion with the arguments and return the result
-    NativeFunction* fn = std::get<NativeFunction*>(expr.var);
-    return fn->call(args);
+    auto native_fn = expr.get_if<NativeFunction>();
+    if (native_fn) {
+      return native_fn->call(args);
+    }
+
+    auto function = expr.get_if<Function>();
+    if (!function) {
+      m_error.report_error("Function `" + caller.token.raw_value.value() + 
+          "` not declared in scope.", caller.token);
+    }
+
+    std::shared_ptr<Environment> fn_env = (*function).env;
+    FunctionDeclaration function_dec = (*function).declaration;
+
+    if (args.size() != function_dec.params.size()) {
+      m_error.report_error("Number of arguments does not match function declaration.\n" 
+          "Expected " + std::to_string(function_dec.params.size()) + " arguments for function: " +
+          caller.token.raw_value.value(), caller.token);
+    }
+
+    // Create variables for the param list
+    for (int idx = 0; idx < args.size(); ++idx) {
+      if (fn_env->has_var(function_dec.params[idx]).has_value()) {
+        fn_env->assign_var(VarAssignment{ function_dec.params[idx], args[idx] });
+      } else {
+        fn_env->declare_var(VarDeclaration{ function_dec.params[idx], args[idx], false });
+      }
+    }
+
+    Interpreter interpreter(Program{ function_dec.body } , m_error, *fn_env);
+    RuntimeVal value = interpreter.evaluate_program();
+    return value;
   }
 
-  RuntimeVal eval_member_expr(MemberExpr* memberExpr, Environment env) {
-    Identifier object = memberExpr->object;
-    Expr member = memberExpr->member;
+  RuntimeVal eval_member_expr(MemberExpr member_expr) {
+    Identifier object = member_expr.object;
+    Expr member = member_expr.member;
 
     // Get the string representation of the identifier and search for it in the environment
-    Expr expr = env.has_var(object).expr.value();
+    Expr expr = m_env.search_var(object).expr.value();
 
     // Loop while the expression is an ObjectLiteral
-    while (std::holds_alternative<ObjectLiteral*>(expr.var)) {
-      const std::vector<Property> properties = std::get<7>(expr.var)->properties;
+    while (expr.is<ObjectLiteral>()) {
+      const std::vector<Property> properties = expr.get<ObjectLiteral>().properties;
 
       // If the member is a nested MemberExpr, update the object and member
-      if (std::holds_alternative<MemberExpr*>(member.var)) {
-        object = std::get<MemberExpr*>(member.var)->object;
-        member = std::get<MemberExpr*>(member.var)->member;
+      if (auto parent = member.get_if<MemberExpr>()) {
+        object = (*parent).object;
+        member = (*parent).member;
       } 
       // Otherwise, the member is an Identifier
       else {
-        object = std::get<Identifier>(member.var);
+        object = member.get<Identifier>();
       }
 
       // Find the property in the object literal with the matching key
-      std::string ident = object.token.rawValue.value();
+      std::string ident = object.token.raw_value.value();
       auto it = std::find_if(properties.begin(), properties.end(), [&ident](const Property& property) {
-        return property.key.token.rawValue.value() == ident;
+        return property.key.token.raw_value.value() == ident;
       });
 
       // Check if the property is not found or has no value
@@ -162,98 +194,72 @@ private:
       expr = it->value.value();
     }
 
-    return eval_expr(expr, env);
+    return eval_expr(expr);
   }
 
-  RuntimeVal eval_bin_expr(BinaryExpr* bin_expr) {
-    RuntimeVal lhs = evaluate({ bin_expr->lhs });
-    RuntimeVal rhs = evaluate({ bin_expr->rhs });
+  RuntimeVal eval_bin_expr(BinaryExpr bin_expr) {
+    RuntimeVal lhs = evaluate(Stmt{ bin_expr.lhs });
+    RuntimeVal rhs = evaluate(Stmt{ bin_expr.rhs });
     
     // Evaluate NullLiteral
-    if (lhs.value.index() == 0) {
+    if (lhs.is<NullLiteral>()) {
       return rhs;
     }
-    if (rhs.value.index() == 0) {
+    if (rhs.is<NullLiteral>()) {
       return lhs;
     }
 
     // Numeric Binary Expr
-    if ((lhs.value.index() == 1 || lhs.value.index() == 2) && 
-      (rhs.value.index() == 1 || rhs.value.index() == 2)) {
-      NumVal lhsNum, rhsNum;
+    if ((lhs.is<IntLiteral>() || lhs.is<FloatLiteral>()) && 
+        (rhs.is<IntLiteral>() || rhs.is<FloatLiteral>())) {
 
-      // Extract value of lhs and rhs into variant
-      lhsNum.value = lhs.value.index() == 1 
-        ? std::variant<int, double>(stoi(std::get<1>(lhs.value).token.rawValue.value()))
-        : std::variant<int, double>(stod(std::get<2>(lhs.value).token.rawValue.value()));
-
-      rhsNum.value = rhs.value.index() == 1 
-        ? std::variant<int, double>(stoi(std::get<1>(rhs.value).token.rawValue.value()))
-        : std::variant<int, double>(stod(std::get<2>(rhs.value).token.rawValue.value()));
-
-      Token result;
-      NumVal num = eval_numeric_bin_expr(lhsNum, rhsNum, bin_expr->operand);
+      auto lhs_num = get_numeric_value(lhs);
+      auto rhs_num = get_numeric_value(rhs);
+      auto num = eval_numeric_bin_expr(lhs_num, rhs_num, bin_expr.operand);
 
       // Num result is an integer
-      if (num.value.index() == 0) {
-        result.rawValue = std::to_string(std::get<0>(num.value));
-        result.type = TokenType::Int;
-
-        IntLiteral intResult;
-        intResult.token = result;
-
-        return { intResult };
+      if (num.index() == 0) {
+        Token result{ TokenType::Int, 0, std::to_string(std::get<int>(num)) };
+        return IntLiteral{ result };
       }
-
       // Num result is a double
       else {
-        result.rawValue = std::to_string(std::get<1>(num.value));
-        result.type = TokenType::Float;
-
-        FloatLiteral floatResult;
-        floatResult.token = result;
-
-        return { floatResult };
+        Token result{ TokenType::Float, 0, std::to_string(std::get<double>(num)) };
+        return FloatLiteral{ result };
       }
     }
 
     // Concatonate strings
-    if (lhs.value.index() == 3 && rhs.value.index() == 2 && bin_expr->operand.type == TokenType::Plus) {
-      StringLiteral lhsStr = std::get<3>(lhs.value);
-      StringLiteral rhsStr = std::get<3>(rhs.value);
+    auto lhs_str = lhs.get_if<StringLiteral>();
+    auto rhs_str = rhs.get_if<StringLiteral>(); 
 
+    if ( lhs_str && rhs_str && bin_expr.operand.type == TokenType::Plus) {
       StringLiteral concat;
-      concat.token.rawValue = lhsStr.token.rawValue.value() + lhsStr.token.rawValue.value();
-
-      return { concat };
+      concat.token.raw_value = lhs_str->token.raw_value.value() + rhs_str->token.raw_value.value();
+      return concat;
     }
 
     // Else Binary Expr is invalid
-    m_error.report_error("Expression:" + get_type(lhs) + Error::to_string(bin_expr->operand.type) +
-        get_type(rhs) + "is invalid.", bin_expr->operand);
+    m_error.report_error("Expression:" + 
+        Error::to_string(lhs.get_token().type) +
+        Error::to_string(bin_expr.operand.type) +
+        Error::to_string(rhs.get_token().type) +
+        "is invalid.", bin_expr.operand);
 
     return RuntimeVal();
   }
 
-  std::string get_type(RuntimeVal runtimeVal) {
-    switch (runtimeVal.value.index()) {
-      case 1: 
-      case 2:
-        return " `number` ";
-      case 3:
-        return " `string` ";
-      case 4:
-        return " `boolean` ";
-      default: 
-        return "";
-    }
+  std::variant<int, double> get_numeric_value(const RuntimeVal val) {
+    return val.is<IntLiteral>() ? std::variant<int, double>(std::stoi(val.get_token().raw_value.value()))
+                                : std::variant<int, double>(std::stod(val.get_token().raw_value.value()));
   }
 
-  NumVal eval_numeric_bin_expr(NumVal lhsNum, NumVal rhsNum, Token t_operand) {
+  std::variant<int, double> eval_numeric_bin_expr(std::variant<int, double> lhs_num, 
+      std::variant<int, double> rhs_num, Token t_operand) {
     TokenType operand = t_operand.type;
 
     // Perform the arithmetic operation
-    auto perform_operation = [&](auto lhs, auto rhs) -> NumVal {
+    auto perform_operation = [&](auto lhs, auto rhs) -> std::variant<int, double> {
       switch (operand) {
         case TokenType::Plus:
           return { lhs + rhs };
@@ -275,18 +281,17 @@ private:
           }
         default:
           m_error.report_error("Invalid operand.", t_operand);
-          exit(EXIT_FAILURE);
       }
     };
 
     // Visit the variants and complete the arithmetic operation
-    return visit(perform_operation, lhsNum.value, rhsNum.value);
+    return visit(perform_operation, lhs_num, rhs_num);
   }
 
 private:
   const Program m_program;
   std::vector<VarDeclaration> vars;
   Error m_error;
-  Environment env;
+  Environment m_env;
 };
 

@@ -25,10 +25,11 @@ int main(int argc, char* argv[]) {
     Error error(tokens);
 
     Parser parser(tokens, error);
-    Program program = parser.createAST();    
+    Program program = parser.create_ast();    
 
-    Interpreter interpreter(program, error);
+    Environment env(error);
+    Interpreter interpreter(program, error, env);
     RuntimeVal runtimeVal = interpreter.evaluate_program();
-    
+
     return EXIT_SUCCESS;
 }
