@@ -18,7 +18,7 @@ public:
           "` is already declared.", declaration.identifier.token);
     }
 
-    m_variables.push_back(declaration);
+    m_variables.emplace_back(declaration);
   }
 
   void assign_var(const VarAssignment& assignment) {
@@ -65,6 +65,14 @@ public:
       m_error.report_error("Variable `" + identifier.token.raw_value.value() + "` was never declared in scope.", 
           identifier.token);
     }
+  }
+
+  constexpr size_t size() {
+    return m_variables.size();
+  }
+
+  void delete_scope(const size_t idx) {
+    m_variables.erase(m_variables.begin() + idx, m_variables.end());
   }
 
 private:

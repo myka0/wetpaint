@@ -77,6 +77,7 @@ struct StringLiteral {
 };
 
 struct BoolLiteral {
+  bool value;
   Token token;
 };
 
@@ -136,6 +137,12 @@ struct BinaryExpr {
   Token operand;
 };
 
+struct BoolExpr {
+  Expr lhs;
+  Expr rhs;
+  Token operand;
+};
+
 struct CallExpr {
   std::vector<Stmt> args;
   Expr caller;
@@ -148,6 +155,17 @@ struct MemberExpr {
 
 struct ReturnExpr {
   Expr expr;
+};
+
+// Conditional Statements
+struct ConditionalStmt {
+  TokenType type;
+  std::vector<Stmt> body;
+  std::optional<BoolExpr> condition;
+};
+
+struct ConditionalBlock {
+  std::vector<ConditionalStmt> stmts;
 };
 
 // Runtime

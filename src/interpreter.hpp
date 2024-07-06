@@ -51,6 +51,9 @@ private:
       m_env.declare_var(VarDeclaration{ function_dec.name, function, true });
       return NullLiteral();
     }
+    else if (stmt.is<ConditionalBlock>()) {
+      return eval_conditional_block(stmt.get<ConditionalBlock>());
+    }
     else {
       return NullLiteral();
     }
@@ -81,6 +84,13 @@ private:
     else if (expr.is<BinaryExpr>()) {
       return eval_bin_expr(expr.get<BinaryExpr>());
     }
+    else if (expr.is<BoolExpr>()) {
+      bool boolean = eval_bool_expr(expr.get<BoolExpr>());
+      Token token = boolean ? Token{ TokenType::True, 0, "true" } 
+			    : Token{ TokenType::False, 0, "false" };
+      
+      return BoolLiteral{ boolean, token };
+    }
     else if (expr.is<ObjectLiteral>()) {
       return eval_object_literal(expr.get<ObjectLiteral>());
     }
@@ -96,6 +106,29 @@ private:
     else {
       return NullLiteral();
     }
+  }
+
+  RuntimeVal eval_conditional_block(ConditionalBlock block) {
+    for (ConditionalStmt stmt : block.stmts) {
+      // Check if the statement's condition has no value or evaluates to true     
+      if (!stmt.condition.has_value() || eval_bool_expr(stmt.condition.value())) {
+	eval_conditional_stmt(stmt);
+	return NullLiteral();
+      }
+    }
+
+    return NullLiteral();
+  }
+
+  void eval_conditional_stmt(ConditionalStmt conditional) {
+    size_t size = m_env.size();    
+
+    for (Stmt stmt : conditional.body) {
+      evaluate(stmt);
+    }
+
+    // Restore the environment to its original state   
+    m_env.delete_scope(size);
   }
 
   RuntimeVal eval_object_literal(ObjectLiteral object) {
@@ -117,7 +150,7 @@ private:
   RuntimeVal eval_call_expr(CallExpr call_expr) {
     std::vector<RuntimeVal> args;
     for (Stmt arg : call_expr.args) {
-      args.push_back(evaluate(arg));
+      args.emplace_back(evaluate(arg));
     }
 
     // Retrieve the function identifier from the caller expression
@@ -195,6 +228,35 @@ private:
     }
 
     return eval_expr(expr);
+  }
+
+  bool eval_bool_expr(BoolExpr expr) {
+    TokenType operand = expr.operand.type;
+    auto lhs = eval_expr(expr.lhs).get_token().raw_value.value();
+    auto rhs = eval_expr(expr.rhs).get_token().raw_value.value();
+
+    switch (operand) {
+      case TokenType::Equals:
+        return lhs == rhs;
+      case TokenType::Not:
+        return lhs != rhs;
+      case TokenType::Greater:
+        return lhs > rhs;
+      case TokenType::Less:
+        return lhs < rhs;
+      case TokenType::GreaterEquals:
+        return lhs >= rhs;
+      case TokenType::LessEquals:
+        return lhs <= rhs;
+      case TokenType::And:
+        return eval_expr(expr.lhs).get<BoolLiteral>().value 
+	    && eval_expr(expr.rhs).get<BoolLiteral>().value;
+      case TokenType::Or: 
+        return eval_expr(expr.lhs).get<BoolLiteral>().value 
+	    || eval_expr(expr.rhs).get<BoolLiteral>().value;
+      default:
+        m_error.report_error("Unsupported operand in boolean expression.", expr.operand);
+    }
   }
 
   RuntimeVal eval_bin_expr(BinaryExpr bin_expr) {

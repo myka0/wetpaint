@@ -14,7 +14,7 @@ public:
     Program program;
     
     while (not_eof()) {
-      program.stmts.push_back(parse_stmt());
+      program.stmts.emplace_back(parse_stmt());
     }
 
     return program; 
@@ -30,41 +30,12 @@ private:
       case TokenType::Const:
         return parse_declaration_stmt();
       case TokenType::Fn:
-        return parse_fn_declaration();
+	return parse_fn_declaration();
+      case TokenType::If:
+	return parse_conditional_block();
       default: 
         return parse_assignment_expr();
     }
-  }
-
-  Stmt parse_fn_declaration() {
-    pop();
-    Identifier name = { expect(TokenType::Identifier, 
-      "Expected identifier following fucntion declaration keyword.") };
-
-    // Parse function params
-    std::vector<Identifier> params;
-    std::vector<Stmt> args = parse_args(); 
-    for (Stmt arg : args) {
-      // Ensure argument is an identifier
-      auto expr = arg.get_if<Expr>();
-      auto ident = expr->get_if<Identifier>();
-      if (!expr || !ident) {
-        m_error.report_error("Function parmaters must be of type `Identifier`.", peek(-1).value());
-      }
-      
-      params.push_back(*ident);
-    }
-
-    expect(TokenType::OpenBrace, "Expected fucntion body following function declaration.");
-    std::vector<Stmt> body;
-
-    // Parse function body
-    while (not_eof() && peek().value().type != TokenType::CloseBrace) {
-      body.push_back(parse_stmt());
-    }
-      
-    expect(TokenType::CloseBrace, "Closing brace expect to end function declaration.");
-    return FunctionDeclaration { name, params, body };
   }
 
   // Handle variable declaration
@@ -96,6 +67,79 @@ private:
     return variable;
   }
 
+  // Handle function declaration
+  Stmt parse_fn_declaration() {
+    pop();
+    Identifier name = { expect(TokenType::Identifier, 
+      "Expected identifier following fucntion declaration keyword.") };
+
+    // Parse function params
+    std::vector<Identifier> params;
+    std::vector<Stmt> args = parse_args(); 
+    for (Stmt arg : args) {
+      // Ensure argument is an identifier
+      auto expr = arg.get_if<Expr>();
+      auto ident = expr->get_if<Identifier>();
+      if (!expr || !ident) {
+	m_error.report_error("Function parmaters must be of type `Identifier`.", peek(-1).value());
+      }
+      
+      params.emplace_back(*ident);
+    }
+
+    expect(TokenType::OpenBrace, "Expected fucntion body following function declaration.");
+    std::vector<Stmt> body;
+
+    // Parse function body
+    while (not_eof() && peek().value().type != TokenType::CloseBrace) {
+      body.emplace_back(parse_stmt());
+    }
+      
+    expect(TokenType::CloseBrace, "Closing brace expect to end function declaration.");
+    return FunctionDeclaration{ name, params, body };
+  }
+
+  // Handle conditonal logic
+  Stmt parse_conditional_block() {
+    std::vector<ConditionalStmt> stmts;    
+    stmts.emplace_back(parse_conditional_stmt());
+    
+    // Parse all elif statements
+    while (peek().value().type == TokenType::Elif) {
+      stmts.emplace_back(parse_conditional_stmt());
+    }
+
+    // Parse the else statement if present
+    if (peek().value().type == TokenType::Else) {
+      TokenType type = pop().type;
+      stmts.emplace_back(ConditionalStmt{ type, parse_conditional_body() });
+    }
+
+    return ConditionalBlock{ stmts };
+  }
+
+  ConditionalStmt parse_conditional_stmt() {
+    TokenType type = pop().type;
+
+    expect(TokenType::OpenPar, "Expected open parenthesis `(` after conditonal keyword.");
+    Expr conditon = parse_boolean_expr();
+    expect(TokenType::ClosePar, "Expected close parenthesis `)` after boolean expression.");
+
+    return ConditionalStmt{ type, parse_conditional_body(), conditon.get<BoolExpr>()};
+  }
+
+  std::vector<Stmt> parse_conditional_body() {
+    expect(TokenType::OpenBrace, "Expected conditonal body following conditonal statement.");
+    std::vector<Stmt> body;
+
+    while (not_eof() && peek().value().type != TokenType::CloseBrace) {
+      body.emplace_back(parse_stmt());
+    }
+      
+    expect(TokenType::CloseBrace, "Closing brace expect to end conditonal statement.");
+    return body;
+  }
+
   // Handle variable reassignment
   Stmt parse_assignment_expr() {
     Expr lhs = parse_object_expr();
@@ -111,9 +155,10 @@ private:
     return lhs;
   }
 
+  // Handle object creation
   Expr parse_object_expr() {
     if (peek().value().type != TokenType::OpenBrace) {
-      return parse_additive_expr();
+      return parse_boolean_expr();
     }
 
     pop();
@@ -126,28 +171,74 @@ private:
 
       // Check for shorthand key declaration
       if (peek().value().type == TokenType::CloseBrace) {
-        object.properties.push_back(Property{ key });
+        object.properties.emplace_back(Property{ key });
         continue;
       } 
       else if (peek().value().type == TokenType::Comma) {
         pop();
-        object.properties.push_back(Property{ key });
+        object.properties.emplace_back(Property{ key });
         continue;
       }
 
       // Parse key value
       expect(TokenType::Equals, "Expected equals `=` following identifier in variable declaration.");
-      object.properties.push_back(Property{ key, parse_object_expr() });
+      object.properties.emplace_back(Property{ key, parse_object_expr() });
 
       // Check for next key or object declaration close
       if (peek().value().type == TokenType::Comma) {
         pop();
       } else {
-        expect(TokenType::CloseBrace, "Expected closing brace or comma following property.");
+	expect(TokenType::CloseBrace, "Expected closing brace or comma following property."); 
       }
     }
 
     return object;
+  }
+
+  // Handle boolean expressions
+  Expr parse_boolean_expr() {
+    Expr lhs = parse_additive_expr();
+
+    // Check for GreaterEquals or LessEquals
+    if (peek().value().type == TokenType::Greater && peek(1).value().type == TokenType::Equals || 
+	peek().value().type == TokenType::Less && peek(1).value().type == TokenType::Equals) {
+      Token operand = pop();
+      pop();
+
+      TokenType type = operand.type == TokenType::Greater 
+	? TokenType::GreaterEquals 
+	: TokenType::LessEquals;
+
+      operand = Token{ type, operand.line };
+
+      Expr rhs = parse_additive_expr();
+      lhs = BoolExpr{ lhs, rhs, operand };
+    }
+
+    // Check for Equals, NotEquals, Greater, or Less 
+    if (peek().value().type == TokenType::Equals && peek(1).value().type == TokenType::Equals || 
+	peek().value().type == TokenType::Not && peek(1).value().type == TokenType::Equals || 
+	peek().value().type == TokenType::Greater || peek().value().type == TokenType::Less) {
+      Token operand = pop();
+      if (peek().value().type == TokenType::Equals) {
+	pop(); // consume the second '=' in '==' or '!='
+      }
+
+      Expr rhs = parse_additive_expr();
+      lhs = BoolExpr{ lhs, rhs, operand };
+    }
+
+    // Check for logical AND or OR
+    if (peek().value().type == TokenType::And && peek(1).value().type == TokenType::And ||
+	peek().value().type == TokenType::Or && peek(1).value().type == TokenType::Or) {
+      Token operand = pop();
+      pop();
+
+      Expr rhs = parse_boolean_expr();
+      lhs = BoolExpr{ lhs, rhs, operand };
+    }
+
+    return lhs;
   }
 
   // Handle Addition & Subtraction operations
@@ -168,8 +259,8 @@ private:
     Expr expr = parse_call_member_expr();
     
     while (peek().value().type == TokenType::Star
-        || peek().value().type == TokenType::FwdSlash
-        || peek().value().type == TokenType::Modulo) {
+	|| peek().value().type == TokenType::FwdSlash
+	|| peek().value().type == TokenType::Modulo) {
       Token operand = pop();
       BinaryExpr bin_expr{ expr, parse_multiplicitave_expr(), operand };
       expr = bin_expr;
@@ -220,12 +311,12 @@ private:
   // Parses a list of arguments
   std::vector<Stmt> parse_args_list() {
     std::vector<Stmt> args;
-    args.push_back(parse_assignment_expr());
+    args.emplace_back(parse_assignment_expr());
 
     // Parse arguments separated by commas
     while (peek().value().type == TokenType::Comma) {
       pop();
-      args.push_back(parse_assignment_expr());
+      args.emplace_back(parse_assignment_expr());
     }
 
     return args;
@@ -252,6 +343,7 @@ private:
 
     return object;
   }
+
   // Parse literal values & grouping expr
   Expr parse_primary_expr() {
     Token token = pop();
@@ -274,12 +366,12 @@ private:
       }
       // Boolean Value
       case TokenType::True: {
-        token.raw_value = "1";
-        return BoolLiteral{ token };
+        token.raw_value = "true";
+        return BoolLiteral{ true, token };
       }
       case TokenType::False: {
-        token.raw_value = "0";
-        return BoolLiteral{ token };
+        token.raw_value = "false";
+        return BoolLiteral{ false, token };
       }
       // Null Expression
       case TokenType::Null: {
@@ -288,17 +380,22 @@ private:
       } 
       // Grouping Expressions
       case TokenType::OpenPar: {
-        Expr expr(parse_additive_expr()); 
+        Expr expr(parse_boolean_expr()); 
         pop();
         return expr;
       }
+      case TokenType::Not: {
+	Token bool_token{ TokenType::True, token.line, "true" };
+	BoolLiteral boolean{ true,  bool_token };
+	return BoolExpr{ parse_primary_expr(), boolean, token };
+      }
       case TokenType::Return: {
-        return ReturnExpr { parse_object_expr() };
+	return ReturnExpr { parse_object_expr() };
       }
       // Unidentified Tokens and Invalid Code Reached
       default: {
         m_error.report_error("Unexpected token found during parsing: `" + 
-            m_error.to_string(token.type) + "`", peek(-1).value());
+	    m_error.to_string(token.type) + "`", peek(-1).value());
       }
     }
   }
@@ -319,14 +416,14 @@ private:
     Token token = pop();
 
     if (token.type != expected_type) {
-      m_error.report_error("Unexpected token: `" + m_error.to_string(peek(-1).value().type) +
-          "` \n" + message, peek(-1).value());
+      m_error.report_error("Unexpected token: `" + m_error.to_string(peek(-1).value().type) + "` \n" + 
+	  message, peek(-1).value());
     }
 
     return token;
   }
 
-  bool not_eof() {
+  constexpr bool not_eof() {
     return m_tokens.at(m_idx).type != TokenType::EndOfFile;
   }
 

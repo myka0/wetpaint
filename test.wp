@@ -31,3 +31,33 @@ print(adder(2, 3))
 
 let test = adder(2 - 1, 4 * 2)
 print(test)
+
+# Conditional Logic
+let val = 3
+print("Boolean: ", !(val == 3 || obj.c == "test" && z))
+
+if (val == 1) {
+  print("val == 1")
+} 
+elif (val == 2) {
+  print("val == 2")
+}
+elif (val == 3) {
+  print("val == 3")
+}
+else {
+  print("val == 4")
+}
+
+if (val > 1) {
+  print("val > 1")
+} 
+if (val < 2) {
+  print("val < 2")
+}
+if (val >= 3) {
+  print("val >= 3")
+}
+if (val <= 4) {
+  print("val <= 4")
+}

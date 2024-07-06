@@ -28,9 +28,9 @@ public:
         TokenType token = get_keyword(buffer);
 
         if (token == TokenType::Identifier) {
-          tokens.push_back(Token{ token, line_count, buffer });
+          tokens.emplace_back(Token{ token, line_count, buffer });
         } else {
-          tokens.push_back(Token{ token, line_count });
+          tokens.emplace_back(Token{ token, line_count });
         }
 
         buffer.clear();
@@ -49,12 +49,12 @@ public:
           while (isdigit(peek().value()))
             buffer.push_back(pop());
 
-          tokens.push_back(Token{ TokenType::Float, line_count, buffer });
+          tokens.emplace_back(Token{ TokenType::Float, line_count, buffer });
         }
 
         // Tokenize integer
         else {
-          tokens.push_back(Token{ TokenType::Int, line_count, buffer });
+          tokens.emplace_back(Token{ TokenType::Int, line_count, buffer });
         }
 
         buffer.clear();
@@ -68,7 +68,7 @@ public:
         }
 
         pop();
-        tokens.push_back(Token{ TokenType::String, line_count, buffer });
+        tokens.emplace_back(Token{ TokenType::String, line_count, buffer });
         buffer.clear();
       }
 
@@ -92,12 +92,12 @@ public:
 
       // Character must be symbol or invalid
       else {
-        tokens.push_back(Token{ get_symbol(peek().value()), line_count });
+        tokens.emplace_back(Token{ get_symbol(peek().value()), line_count });
         pop();
       }
     }
 
-    tokens.push_back(Token{ TokenType::EndOfFile, line_count });
+    tokens.emplace_back(Token{ TokenType::EndOfFile, line_count });
     m_idx = 0;
     return tokens;
   }
@@ -141,6 +141,11 @@ private:
       {'/', TokenType::FwdSlash},
       {'%', TokenType::Modulo},
       {'=', TokenType::Equals},
+      {'!', TokenType::Not},
+      {'>', TokenType::Greater},
+      {'<', TokenType::Less},
+      {'&', TokenType::And},
+      {'|', TokenType::Or},
       {'(', TokenType::OpenPar},
       {')', TokenType::ClosePar},
       {'{', TokenType::OpenBrace},
