@@ -143,6 +143,11 @@ struct BoolExpr {
   Token operand;
 };
 
+struct Increment {
+  Identifier identifier;
+  Token operand;
+};
+
 struct CallExpr {
   std::vector<Stmt> args;
   Expr caller;
@@ -168,6 +173,19 @@ struct ConditionalBlock {
   std::vector<ConditionalStmt> stmts;
 };
 
+// Looping
+struct WhileLoop {
+  BoolExpr condition;
+  std::vector<Stmt> body;
+};
+
+struct ForLoop {
+  VarAssignment variable;
+  BoolExpr condition;
+  Expr counter;
+  std::vector<Stmt> body;
+};
+
 // Runtime
 struct RuntimeVal : public ASTNode {
   using ASTNode::ASTNode;
@@ -182,7 +200,7 @@ struct RuntimeVal : public ASTNode {
       { typeid(Identifier), [](const ASTNode& node) { return node.get<Identifier>().token; } }
     };
 
-   auto it = tokens.find(var.type());
+    auto it = tokens.find(var.type());
     return it->second(var);
   }
 };

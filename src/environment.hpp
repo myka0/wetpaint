@@ -6,7 +6,7 @@
 class Environment {
 public:
   explicit Environment(Error error)
-    : m_variables(), m_error(error)
+    : m_variables(), m_error(std::move(error))
   {
     define_print_function();
   }
@@ -71,7 +71,7 @@ public:
     return m_variables.size();
   }
 
-  void delete_scope(const size_t idx) {
+  void restore_scope(const size_t idx) {
     m_variables.erase(m_variables.begin() + idx, m_variables.end());
   }
 

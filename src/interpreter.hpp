@@ -7,7 +7,7 @@
 class Interpreter {
 public:
   explicit Interpreter(Program program, Error error, Environment env)
-    : m_program(program), m_error(error), m_env(env) 
+    : m_program(std::move(program)), m_error(std::move(error)), m_env(std::move(env)) 
   {
   }
 
@@ -52,7 +52,13 @@ private:
       return NullLiteral();
     }
     else if (stmt.is<ConditionalBlock>()) {
-      return eval_conditional_block(stmt.get<ConditionalBlock>());
+      return eval_conditional(stmt.get<ConditionalBlock>());
+    }
+    else if (stmt.is<ForLoop>()) {
+      return eval_for_loop(stmt.get<ForLoop>());
+    }
+    else if (stmt.is<WhileLoop>()) {
+      return eval_while_loop(stmt.get<WhileLoop>());
     }
     else {
       return NullLiteral();
@@ -87,8 +93,7 @@ private:
     else if (expr.is<BoolExpr>()) {
       bool boolean = eval_bool_expr(expr.get<BoolExpr>());
       Token token = boolean ? Token{ TokenType::True, 0, "true" } 
-			    : Token{ TokenType::False, 0, "false" };
-      
+                            : Token{ TokenType::False, 0, "false" };
       return BoolLiteral{ boolean, token };
     }
     else if (expr.is<ObjectLiteral>()) {
@@ -100,6 +105,9 @@ private:
     else if (expr.is<MemberExpr>()) {
       return eval_member_expr(expr.get<MemberExpr>());
     }
+    else if (expr.is<Increment>()) {
+      return eval_increment(expr.get<Increment>());
+    }
     else if (expr.is<RuntimeVal>()) {
       return expr.get<RuntimeVal>();
     }
@@ -108,27 +116,65 @@ private:
     }
   }
 
-  RuntimeVal eval_conditional_block(ConditionalBlock block) {
+  RuntimeVal eval_conditional(ConditionalBlock block) {
     for (ConditionalStmt stmt : block.stmts) {
       // Check if the statement's condition has no value or evaluates to true     
       if (!stmt.condition.has_value() || eval_bool_expr(stmt.condition.value())) {
-	eval_conditional_stmt(stmt);
-	return NullLiteral();
+        eval_body(stmt.body);
+        return NullLiteral();
       }
     }
 
     return NullLiteral();
   }
 
-  void eval_conditional_stmt(ConditionalStmt conditional) {
+  RuntimeVal eval_for_loop(ForLoop loop) {
+    VarAssignment variable = loop.variable;
+    bool variable_exists = m_env.has_var(variable.identifier).has_value();
+
+    // Declare the variable if it doesn't already exist
+    if (!variable_exists) {
+      VarDeclaration declaration{ variable.identifier, variable.expr, false };
+      m_env.declare_var(declaration);
+    }
+    
+    m_env.assign_var(variable);
+
+    // Evaluate the loop condition and body
+    while (eval_bool_expr(loop.condition)) {
+      eval_body(loop.body);
+      eval_expr(loop.counter);
+    }
+
+    // Restore the environment to its original state
+    if (!variable_exists) {
+      m_env.restore_scope(m_env.size() - 1);
+    } else {
+      m_env.assign_var(variable);
+    }
+
+    return NullLiteral();    
+  }
+
+  RuntimeVal eval_while_loop(WhileLoop loop) {
+    // Evaluate the loop condition and body   
+    while (eval_bool_expr(loop.condition)) {
+      eval_body(loop.body);
+    }
+
+    return NullLiteral();
+  }
+
+  void eval_body(std::vector<Stmt> body) {
+    // Save the current size of the environment stack
     size_t size = m_env.size();    
 
-    for (Stmt stmt : conditional.body) {
+    for (Stmt stmt : body) {
       evaluate(stmt);
     }
 
     // Restore the environment to its original state   
-    m_env.delete_scope(size);
+    m_env.restore_scope(size);
   }
 
   RuntimeVal eval_object_literal(ObjectLiteral object) {
@@ -224,10 +270,25 @@ private:
         m_error.report_error("Member: `" + ident + "` was not found in Object.", object.token);
       }
 
-      expr = it->value.value();
+      if (it->value.has_value()) {
+        expr = it->value.value();
+      } else {
+        expr = m_env.search_var(it->key).expr.value();
+      }
     }
 
     return eval_expr(expr);
+  }
+
+  RuntimeVal eval_increment(Increment variable) {
+    IntLiteral one_literal{ Token{ TokenType::Int, 0, "1" } };
+    BinaryExpr increment{ variable.identifier, one_literal, variable.operand };
+    RuntimeVal incremented_val = eval_bin_expr(increment);
+
+    VarAssignment assignment{ variable.identifier, incremented_val };
+    m_env.assign_var(assignment);
+
+    return incremented_val;
   }
 
   bool eval_bool_expr(BoolExpr expr) {
@@ -241,19 +302,19 @@ private:
       case TokenType::Not:
         return lhs != rhs;
       case TokenType::Greater:
-        return lhs > rhs;
+        return std::stoi(lhs) > std::stoi(rhs);
       case TokenType::Less:
-        return lhs < rhs;
+        return std::stoi(lhs) < std::stoi(rhs);
       case TokenType::GreaterEquals:
-        return lhs >= rhs;
+        return std::stoi(lhs) >= std::stoi(rhs);
       case TokenType::LessEquals:
-        return lhs <= rhs;
+        return std::stoi(lhs) <= std::stoi(rhs);
       case TokenType::And:
         return eval_expr(expr.lhs).get<BoolLiteral>().value 
-	    && eval_expr(expr.rhs).get<BoolLiteral>().value;
+            && eval_expr(expr.rhs).get<BoolLiteral>().value;
       case TokenType::Or: 
         return eval_expr(expr.lhs).get<BoolLiteral>().value 
-	    || eval_expr(expr.rhs).get<BoolLiteral>().value;
+            || eval_expr(expr.rhs).get<BoolLiteral>().value;
       default:
         m_error.report_error("Unsupported operand in boolean expression.", expr.operand);
     }

@@ -20,6 +20,8 @@ enum class TokenType {
   If,
   Else,
   Elif,
+  For,
+  While,
   Return,
 
   // Grouping

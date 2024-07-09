@@ -30,6 +30,8 @@ public:
       {TokenType::If, "if"},
       {TokenType::Else, "else"},
       {TokenType::Elif, "elif"},
+      {TokenType::For, "for"},
+      {TokenType::While, "while"},
       {TokenType::Return, "return"},
       {TokenType::Null, "null"},
       {TokenType::Int, "Integer Literal"},

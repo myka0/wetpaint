@@ -123,6 +123,8 @@ private:
       {"if", TokenType::If},
       {"else", TokenType::Else},
       {"elif", TokenType::Elif},
+      {"for", TokenType::For},
+      {"while", TokenType::While},
       {"return", TokenType::Return},
       {"null", TokenType::Null},
       {"true", TokenType::True},
